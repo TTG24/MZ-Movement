@@ -37,4 +37,4 @@ Install the mod and Fabric API on both the client and server. Players without th
 
 ## License
 
-CC0-1.0.
+All rights reserved. The source is viewable only; copying, modifying and redistributing it require written permission. See [LICENSE](LICENSE).
