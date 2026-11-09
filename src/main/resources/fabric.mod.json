@@ -1,0 +1,34 @@
+{
+	"schemaVersion": 1,
+	"id": "tacticalmovement",
+	"version": "${version}",
+	"name": "Tactical Movement",
+	"description": "Call of Duty-inspired prone movement, dolphin dives, and tactical sword animations.",
+	"authors": [
+		"MZ Cod Mod"
+	],
+	"license": "CC0-1.0",
+	"icon": "assets/tacticalmovement/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"com.mzcod.tacticalmovement.TacticalMovement"
+		],
+		"client": [
+			"com.mzcod.tacticalmovement.client.TacticalMovementClient"
+		]
+	},
+	"mixins": [
+		"tacticalmovement.mixins.json",
+		{
+			"config": "tacticalmovement.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.20.1",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

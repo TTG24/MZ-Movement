@@ -1,0 +1,27 @@
+{
+	"required": true,
+	"package": "com.mzcod.tacticalmovement.client.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"AvatarRenderStateMixin",
+		"AvatarRenderStateMixin$State",
+		"AvatarRendererMixin",
+		"PlayerModelMixin",
+		"ModelRenderToBufferMixin",
+		"FirstPersonHandsRendererMixin",
+		"ItemInHandLayerMixin",
+		"LocalPlayerShiftMixin",
+		"MinecraftSwordCooldownMixin",
+		"MinecraftGunSwingMixin",
+		"GunCooldownMixin",
+		"GameRendererBobMixin",
+		"PlayerModelKneeMixin",
+		"AbstractClientPlayerFovMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

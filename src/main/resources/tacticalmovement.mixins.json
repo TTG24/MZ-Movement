@@ -1,0 +1,19 @@
+{
+	"required": true,
+	"package": "com.mzcod.tacticalmovement.mixin",
+	"compatibilityLevel": "JAVA_25",
+	"mixins": [
+		"EntityShiftMixin",
+		"EntityTeamColorMixin",
+		"PlayerAttackCooldownMixin",
+		"LivingEntityDimensionsMixin",
+		"LivingEntityJumpMixin",
+		"PlayerMovementStateMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
