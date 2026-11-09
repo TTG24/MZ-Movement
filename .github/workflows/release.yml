@@ -22,7 +22,10 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            build/libs/tactical-movement-*[0-9].jar \
-            --title "Tactical Movement ${GITHUB_REF_NAME#v}" \
-            --notes "Fabric mod for Minecraft 26.3. Install it with Fabric API on the client (and the server, if the server runs the mod). For Paper/Purpur servers, use the companion Tactical Movement plugin so players without the mod still get stamina and the prone model."
+          JAR=$(ls build/libs/tactical-movement-*[0-9].jar)
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            # The tag was pushed again: refresh the attached jar instead of failing.
+            gh release upload "$GITHUB_REF_NAME" "$JAR" --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" "$JAR"               --title "Tactical Movement ${GITHUB_REF_NAME#v}"               --notes "Fabric mod for Minecraft 26.3. Install it with Fabric API on the client (and the server, if the server runs the mod). For Paper/Purpur servers, use the companion Tactical Movement plugin so players without the mod still get stamina and the prone model."
+          fi
