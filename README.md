@@ -38,3 +38,7 @@ Install the mod and Fabric API on both the client and server. Players without th
 ## License
 
 All rights reserved. The source is viewable only; copying, modifying and redistributing it require written permission. See [LICENSE](LICENSE).
+
+## Author
+
+[TTG24](https://github.com/TTG24)
