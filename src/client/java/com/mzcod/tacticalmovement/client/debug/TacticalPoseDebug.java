@@ -127,9 +127,9 @@ public final class TacticalPoseDebug {
 
 	// Sword offsets are relative to vanilla's own first-person item position (all 0 = vanilla, always visible).
 	// Now relative to the 3p grip frame (the sword is attached to the arm's hand): all 0 = 3p placement.
-	public static float fpSwordX = 0.2F;
-	public static float fpSwordY = 0.0F;
-	public static float fpSwordZ = 0.2F;
+	public static float fpSwordX = 0.15F;
+	public static float fpSwordY = -0.2F;
+	public static float fpSwordZ = 0.15F;
 	public static float fpSwordYaw = 0.0F;
 	public static float fpSwordPitch = 10.0F;
 	public static float fpSwordRoll = -180.0F;

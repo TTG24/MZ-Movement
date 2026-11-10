@@ -25,7 +25,7 @@ public abstract class AvatarRenderStateMixin {
 		TacticalRenderStateAccess access = (TacticalRenderStateAccess) state;
 		MovementStance stance = ((MovementStateAccess) entity).tacticalMovement$getStance();
 		access.tacticalMovement$setStance(stance);
-		access.tacticalMovement$setHoldingSword(entity.getMainHandItem().is(ItemTags.SWORDS));
+		access.tacticalMovement$setHoldingSword(entity.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE));
 
 		// Tag this render state as the LOCAL player's model so the model mixin can gate
 		// local-camera effects (the prone head pitch tracking) to the local player only --

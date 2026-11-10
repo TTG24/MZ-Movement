@@ -24,7 +24,7 @@ public abstract class PlayerAttackCooldownMixin {
 	@Inject(method = "attack", at = @At("HEAD"), cancellable = true)
 	private void tacticalMovement$swordCooldown(Entity target, CallbackInfo ci) {
 		Player self = (Player) (Object) this;
-		if (!self.getMainHandItem().is(ItemTags.SWORDS)) {
+		if (!self.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE)) {
 			return;
 		}
 		long now = self.level().getGameTime();

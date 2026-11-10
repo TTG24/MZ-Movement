@@ -22,7 +22,7 @@ public abstract class MinecraftSwordCooldownMixin {
 	@Inject(method = "startAttack", at = @At("HEAD"), cancellable = true)
 	private void tacticalMovement$swordCooldown(CallbackInfoReturnable<Boolean> cir) {
 		Minecraft self = (Minecraft) (Object) this;
-		if (self.player == null || self.level == null || !self.player.getMainHandItem().is(ItemTags.SWORDS)) {
+		if (self.player == null || self.level == null || !self.player.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE)) {
 			return;
 		}
 		long now = self.level.getGameTime();

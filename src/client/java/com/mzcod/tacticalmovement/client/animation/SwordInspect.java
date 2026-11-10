@@ -51,7 +51,7 @@ public final class SwordInspect {
 
 	public static void begin() {
 		var player = Minecraft.getInstance().player;
-		if (player == null || active() || !player.getMainHandItem().is(ItemTags.SWORDS)) {
+		if (player == null || active() || !player.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE)) {
 			return;
 		}
 		MovementStance stance = ((MovementStateAccess) player).tacticalMovement$getStance();
@@ -67,7 +67,7 @@ public final class SwordInspect {
 			return;
 		}
 		var player = client.player;
-		if (player == null || !player.getMainHandItem().is(ItemTags.SWORDS) || player.isSprinting()
+		if (player == null || !player.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE) || player.isSprinting()
 			|| player.getSwingAnimation(1.0F) > 0.0F || client.options.keyAttack.isDown() || client.options.keyUse.isDown()
 			|| client.gui.screen() != null) {
 			start = -1L;

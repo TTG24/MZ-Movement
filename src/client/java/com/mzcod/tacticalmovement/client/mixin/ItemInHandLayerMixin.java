@@ -42,7 +42,7 @@ public abstract class ItemInHandLayerMixin {
 		int lightCoords,
 		CallbackInfo ci
 	) {
-		if (state.entityType == EntityTypes.PLAYER && itemStack.is(ItemTags.SWORDS)) {
+		if (state.entityType == EntityTypes.PLAYER && itemStack.is(com.mzcod.tacticalmovement.TacticalItems.MELEE)) {
 			poseStack.rotateDegrees(Axis.ZP, 180.0F);
 			// Live-tunable sword hold offset (move the handle onto the arm). Applied AFTER the
 			// reverse-grip flip + swing so it sits in the sword's local frame. All-zero = vanilla.

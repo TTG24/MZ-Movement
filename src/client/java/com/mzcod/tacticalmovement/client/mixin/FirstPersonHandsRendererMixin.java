@@ -53,7 +53,7 @@ public abstract class FirstPersonHandsRendererMixin {
 		CallbackInfo ci
 	) {
 		if (hand == InteractionHand.MAIN_HAND
-			&& itemStack.is(ItemTags.SWORDS)
+			&& itemStack.is(com.mzcod.tacticalmovement.TacticalItems.MELEE)
 			&& !state.isScoping
 			&& playerState.avatarRenderState != null
 			&& Minecraft.getInstance().player != null) {
