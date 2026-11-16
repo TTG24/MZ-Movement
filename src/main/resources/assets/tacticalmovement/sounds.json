@@ -1,0 +1,103 @@
+{
+  "cutscene.bite": {
+    "sounds": [
+      "tacticalmovement:cutscene/bite1",
+      "tacticalmovement:cutscene/bite2",
+      "tacticalmovement:cutscene/bite3",
+      "tacticalmovement:cutscene/bite4",
+      "tacticalmovement:cutscene/bite5",
+      "tacticalmovement:cutscene/bite6",
+      "tacticalmovement:cutscene/bite7",
+      "tacticalmovement:cutscene/bite8"
+    ]
+  },
+  "cutscene.blood_gush": {
+    "sounds": [
+      "tacticalmovement:cutscene/blood_gush1",
+      "tacticalmovement:cutscene/blood_gush2"
+    ]
+  },
+  "cutscene.body_fall": {
+    "sounds": [
+      "tacticalmovement:cutscene/body_fall1",
+      "tacticalmovement:cutscene/body_fall2"
+    ]
+  },
+  "cutscene.bone_snap": {
+    "sounds": [
+      "tacticalmovement:cutscene/bone_snap1",
+      "tacticalmovement:cutscene/bone_snap2",
+      "tacticalmovement:cutscene/bone_snap3"
+    ]
+  },
+  "cutscene.drag": {
+    "sounds": [
+      "tacticalmovement:cutscene/drag1",
+      "tacticalmovement:cutscene/drag2"
+    ]
+  },
+  "cutscene.dread": {
+    "sounds": [
+      "tacticalmovement:cutscene/dread"
+    ]
+  },
+  "cutscene.face_punch": {
+    "sounds": [
+      "tacticalmovement:cutscene/face_punch1",
+      "tacticalmovement:cutscene/face_punch2",
+      "tacticalmovement:cutscene/face_punch3",
+      "tacticalmovement:cutscene/face_punch4"
+    ]
+  },
+  "cutscene.flashback": {
+    "sounds": [
+      "tacticalmovement:cutscene/flashback"
+    ]
+  },
+  "cutscene.flesh_tear": {
+    "sounds": [
+      "tacticalmovement:cutscene/flesh_tear1",
+      "tacticalmovement:cutscene/flesh_tear2",
+      "tacticalmovement:cutscene/flesh_tear3"
+    ]
+  },
+  "cutscene.game_over": {
+    "sounds": [
+      "tacticalmovement:cutscene/game_over"
+    ]
+  },
+  "cutscene.heartbeat": {
+    "sounds": [
+      "tacticalmovement:cutscene/heartbeat"
+    ]
+  },
+  "cutscene.punch": {
+    "sounds": [
+      "tacticalmovement:cutscene/punch1",
+      "tacticalmovement:cutscene/punch2"
+    ]
+  },
+  "cutscene.splat": {
+    "sounds": [
+      "tacticalmovement:cutscene/splat1",
+      "tacticalmovement:cutscene/splat2",
+      "tacticalmovement:cutscene/splat3"
+    ]
+  },
+  "cutscene.strain": {
+    "sounds": [
+      "tacticalmovement:cutscene/strain1",
+      "tacticalmovement:cutscene/strain2"
+    ]
+  },
+  "cutscene.tinnitus": {
+    "sounds": [
+      "tacticalmovement:cutscene/tinnitus"
+    ]
+  },
+  "cutscene.tv_static": {
+    "sounds": [
+      "tacticalmovement:cutscene/tv_static"
+    ]
+  }
+}

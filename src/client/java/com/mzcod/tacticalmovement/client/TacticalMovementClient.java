@@ -35,6 +35,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 	private static KeyMapping crouchKey;
 	private static KeyMapping reloadKey;
 	private static KeyMapping inspectKey;
+	private static KeyMapping noclipKey;
 	private static boolean crouchWasDown;
 	private static boolean stanceWasDown;
 	private static boolean proneTriggered;
@@ -58,6 +59,22 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		// Reload (R): sent to the server, where the MinecraftZombies plugin reloads the held gun.
 		reloadKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.tacticalmovement.reload", InputConstants.Type.KEYBOARD, InputConstants.KEY_R, CATEGORY));
+		// Noclip (`): sent to the server, where the NoClip plugin toggles it for operators.
+		noclipKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+			"key.tacticalmovement.noclip", InputConstants.Type.KEYBOARD, InputConstants.KEY_GRAVE, CATEGORY));
+
+		// Zombies: glowing eyes over the reworked dead face (the face itself is a texture override in the mod's assets).
+		net.fabricmc.fabric.api.client.rendering.v1.LivingEntityRenderLayerRegistrationCallback.EVENT.register(
+			(entityType, renderer, helper, context) -> {
+				if (entityType == net.minecraft.world.entity.EntityTypes.ZOMBIE) {
+					@SuppressWarnings({"rawtypes", "unchecked"})
+					var layer = new com.mzcod.tacticalmovement.client.animation.ZombieEyesLayer((net.minecraft.client.renderer.entity.RenderLayerParent) renderer);
+					helper.register(layer);
+					@SuppressWarnings({"rawtypes", "unchecked"})
+					var wounds = new com.mzcod.tacticalmovement.client.wounds.WoundLayer((net.minecraft.client.renderer.entity.RenderLayerParent) renderer);
+					helper.register(wounds);
+				}
+			});
 
 		// Inspect the sword (first person only, nothing is sent to the server).
 		inspectKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
@@ -86,6 +103,13 @@ public final class TacticalMovementClient implements ClientModInitializer {
 			}
 		});
 		StaminaHud.register();
+		BloodFx.register();
+		com.mzcod.tacticalmovement.client.animation.ZombieRise.register();
+		com.mzcod.tacticalmovement.client.wounds.WoundFx.register();
+		com.mzcod.tacticalmovement.client.wounds.Corpses.register();
+		RoundHud.register();
+		NoclipClient.register();
+		com.mzcod.tacticalmovement.client.cutscene.GameOverCutscene.register();
 
 		// Last stand: the server says the player is downed, so the screen turns black and white (a post-processing shader).
 		ClientPlayNetworking.registerGlobalReceiver(com.mzcod.tacticalmovement.network.DownedPayload.TYPE, (payload, context) -> {
@@ -178,6 +202,11 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		}
 		com.mzcod.tacticalmovement.client.animation.SwordInspect.tick(client);
 
+		while (noclipKey.consumeClick()) {
+			if (ClientPlayNetworking.canSend(com.mzcod.tacticalmovement.network.NoclipTogglePayload.TYPE)) {
+				ClientPlayNetworking.send(new com.mzcod.tacticalmovement.network.NoclipTogglePayload());
+			}
+		}
 		while (reloadKey.consumeClick()) {
 			try {
 				ClientPlayNetworking.send(new com.mzcod.tacticalmovement.network.ReloadRequestPayload());
@@ -218,7 +247,11 @@ public final class TacticalMovementClient implements ClientModInitializer {
 				send(MovementAction.EXIT_CROUCH);
 			}
 			if (state.tacticalMovement$getStance().isLowProfile()) {
-				send(MovementAction.EXIT_PRONE);
+				if (roomFor(client.player, 1.8)) {
+					send(MovementAction.EXIT_PRONE);
+				} else {
+					noRoom(client.player);
+				}
 			}
 		}
 		jumpWasDown = jumpDown;
@@ -242,7 +275,23 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		}
 	}
 
+	/** Is there room above the player's feet for a body this tall? (Prone under a block can't get up.) */
+	public static boolean roomFor(net.minecraft.world.entity.player.Player player, double height) {
+		net.minecraft.world.phys.Vec3 p = player.position();
+		double half = player.getBbWidth() / 2.0;
+		return player.level().noCollision(player, new net.minecraft.world.phys.AABB(p.x - half, p.y, p.z - half, p.x + half, p.y + height, p.z + half).deflate(1.0E-7));
+	}
+
+	private static void noRoom(net.minecraft.world.entity.player.Player player) {
+		net.minecraft.client.Minecraft.getInstance().gui.hud.setOverlayMessage(net.minecraft.network.chat.Component.literal("Not enough room to get up"), false);
+	}
+
 	private static void toggleCrouch(MovementStateAccess state) {
+		if (state.tacticalMovement$getStance() == MovementStance.PRONE && state instanceof net.minecraft.world.entity.player.Player player
+			&& !roomFor(player, 1.5)) {
+			noRoom(player);
+			return;
+		}
 		send(state.tacticalMovement$getStance() == MovementStance.CROUCHING
 			? MovementAction.EXIT_CROUCH
 			: MovementAction.ENTER_CROUCH);
@@ -380,6 +429,58 @@ public final class TacticalMovementClient implements ClientModInitializer {
 								com.mzcod.tacticalmovement.movement.StaminaConfig.regen = FloatArgumentType.getFloat(ctx, "regen");
 								com.mzcod.tacticalmovement.movement.StaminaConfig.diveCost = FloatArgumentType.getFloat(ctx, "diveCost");
 								send(ctx, "stamina drain/regen/dive cost set (per tick; single-player/integrated server)");
+								return 1;
+							})))))
+				// /tacticaledbg rise [seconds]: nearby zombies (24 blocks) play the spawn dig-up animation now, on this client only;
+				// /tacticaledbg rise hold <t>: every zombie is held at t seconds into it (0..2.5), /tacticaledbg rise hold -1 to stop
+				// /tacticaledbg vanilla: see what players without the mod see. Zombies drop this mod's animations (walk, attack, rise)
+				// and the server sends you its BetterModel models instead (/tmove nomod, needs op). Run again to go back.
+				.then(ClientCommands.literal("vanilla").executes(ctx -> {
+					boolean on = com.mzcod.tacticalmovement.client.animation.ZombieRise.enabled;
+					com.mzcod.tacticalmovement.client.animation.ZombieRise.enabled = !on;
+					com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled = !on;
+					var mc = Minecraft.getInstance();
+					if (mc.player != null) {
+						mc.player.connection.sendCommand("tmove nomod " + (on ? "on" : "off"));
+					}
+					send(ctx, on ? "no-mod view ON: vanilla zombies, the server's models" : "no-mod view OFF: this mod's animations again");
+					return 1;
+				}))
+				.then(ClientCommands.literal("rise")
+					.executes(ctx -> {
+						int n = com.mzcod.tacticalmovement.client.animation.ZombieRise.debugRise(Minecraft.getInstance(), 24,
+							com.mzcod.tacticalmovement.client.animation.ZombieRiseKeys.LENGTH);
+						send(ctx, n + " zombie(s) rising");
+						return 1;
+					})
+					.then(ClientCommands.literal("hold")
+						.then(ClientCommands.argument("t", FloatArgumentType.floatArg(-1.0F, 10.0F)).executes(ctx -> {
+							com.mzcod.tacticalmovement.client.animation.ZombieRise.freezeAt = FloatArgumentType.getFloat(ctx, "t");
+							send(ctx, com.mzcod.tacticalmovement.client.animation.ZombieRise.freezeAt < 0 ? "rise hold off"
+								: "every zombie held at " + com.mzcod.tacticalmovement.client.animation.ZombieRise.freezeAt + " s of the rise");
+							return 1;
+						})))
+					.then(ClientCommands.argument("seconds", FloatArgumentType.floatArg(0.1F, 60.0F)).executes(ctx -> {
+						int n = com.mzcod.tacticalmovement.client.animation.ZombieRise.debugRise(Minecraft.getInstance(), 24,
+							FloatArgumentType.getFloat(ctx, "seconds"));
+						send(ctx, n + " zombie(s) rising over " + FloatArgumentType.getFloat(ctx, "seconds") + " s");
+						return 1;
+					})))
+				.then(ClientCommands.literal("zombie")
+					.executes(ctx -> {
+						send(ctx, "zombie anim " + (com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled ? "on" : "off")
+							+ ", last walk speed " + String.format("%.2f", com.mzcod.tacticalmovement.client.animation.ZombieAnim.lastSpeed)
+							+ ", sprint " + com.mzcod.tacticalmovement.client.animation.ZombieAnim.sprintFrom + " -> " + com.mzcod.tacticalmovement.client.animation.ZombieAnim.sprintTo);
+						return 1;
+					})
+					.then(ClientCommands.literal("on").executes(ctx -> { com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled = true; send(ctx, "zombie anim on"); return 1; }))
+					.then(ClientCommands.literal("off").executes(ctx -> { com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled = false; send(ctx, "zombie anim off"); return 1; }))
+					.then(ClientCommands.literal("sprint")
+						.then(ClientCommands.argument("from", FloatArgumentType.floatArg(0.0F, 2.0F))
+							.then(ClientCommands.argument("to", FloatArgumentType.floatArg(0.0F, 2.0F)).executes(ctx -> {
+								com.mzcod.tacticalmovement.client.animation.ZombieAnim.sprintFrom = FloatArgumentType.getFloat(ctx, "from");
+								com.mzcod.tacticalmovement.client.animation.ZombieAnim.sprintTo = FloatArgumentType.getFloat(ctx, "to");
+								send(ctx, "zombie sprint blend set");
 								return 1;
 							})))))
 				.then(ClientCommands.literal("inspect")

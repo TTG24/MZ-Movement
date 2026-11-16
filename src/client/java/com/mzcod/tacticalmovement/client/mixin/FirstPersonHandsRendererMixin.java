@@ -52,6 +52,8 @@ public abstract class FirstPersonHandsRendererMixin {
 		int lightCoords,
 		CallbackInfo ci
 	) {
+		// A relaxed elbow for anything else held (the sword path below sets its own)
+		com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow = 0.22F;
 		if (hand == InteractionHand.MAIN_HAND
 			&& itemStack.is(com.mzcod.tacticalmovement.TacticalItems.MELEE)
 			&& !state.isScoping
@@ -62,7 +64,8 @@ public abstract class FirstPersonHandsRendererMixin {
 			// Horizontal slash (Black Ops/WaW-style knife melee): the forearm sweeps across the view from
 			// the outside edge toward the center while the blade tilts. env fades the whole motion in/out so
 			// the arm leaves and returns to its fparm rest pose smoothly; u runs +1 (start) -> -1 (end).
-			float p = Mth.clamp(attack, 0.0F, 1.0F);
+			float p = com.mzcod.tacticalmovement.client.animation.SmoothSwing.of(com.mzcod.tacticalmovement.client.animation.SmoothSwing.FIRST_PERSON,
+				Mth.clamp(attack, 0.0F, 1.0F)); // the smooth slash (wind-up, cut, follow-through)
 			float t = Mth.clamp(Mth.sin(p * Mth.PI) * 3.0F, 0.0F, 1.0F);
 			float env = t * t * (3.0F - 2.0F * t);
 			float u = (1.0F - 2.0F * p) * env;
@@ -73,10 +76,16 @@ public abstract class FirstPersonHandsRendererMixin {
 			// Does nothing when not prone; scaled by crawlMult, faded out during an attack, driven by the
 			// shared clock.
 			SwordSway.update();
+			com.mzcod.tacticalmovement.client.animation.FpRigAnim.update();
+			float sprint = com.mzcod.tacticalmovement.client.animation.FpRigAnim.sprint() * (1.0F - env);
 			float walk = SwordSway.speed() * (1.0F - env);
-			// Only while prone (not standing, not mid-dive): the crawl animation is prone-only.
-			if (((MovementStateAccess) Minecraft.getInstance().player).tacticalMovement$getStance() == MovementStance.PRONE) {
-				walk *= TacticalPoseDebug.fpCrawlMult;
+			MovementStance fpStance = ((MovementStateAccess) Minecraft.getInstance().player).tacticalMovement$getStance();
+			com.mzcod.tacticalmovement.client.animation.FpCrawl.update();
+			if (fpStance == MovementStance.PRONE) {
+				walk = 0.0F; // the crawl (FpCrawl) moves the arms instead
+			} else if (fpStance == MovementStance.STANDING) {
+				// Walking on your feet: a gentler version of the same sway (the arm rolls and reaches with each step)
+				walk *= 0.45F * (1.0F - sprint);
 			} else {
 				walk = 0.0F;
 			}
@@ -84,6 +93,24 @@ public abstract class FirstPersonHandsRendererMixin {
 			float walkReach = -TacticalPoseDebug.fpWalkReach * Mth.cos(SwordSway.phase()) * walk;
 
 			poseStack.pushPose();
+			// Prone: the sword arm crawls (and pushes you up when you get up)
+			com.mzcod.tacticalmovement.client.animation.FpCrawl.applyArm(poseStack, side, true, env);
+			// Sprinting: the sword arm drops and swings down and in, the blade trailing low, bouncing with the stride;
+			// the elbow bends more (the arm pumps). Walking bends it with each step; standing still it breathes.
+			float ph = SwordSway.phase();
+			if (sprint > 0.001F) {
+				// Sprinting: the arm swings side to side across the body with each stride (no lifting), dipping a little
+				// at each footfall
+				float sway = Mth.sin(ph);
+				float dip = Math.abs(Mth.cos(ph)) * 0.025F * sprint;
+				poseStack.translate(side * 0.02F * sprint - sway * 0.07F * sprint, -0.04F * sprint - dip, 0.0F);
+				poseStack.rotateDegrees(Axis.YP, -sway * 11.0F * sprint);
+				poseStack.rotateDegrees(Axis.ZP, side * Mth.cos(ph) * 4.0F * sprint);
+			}
+			com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow = 0.22F + Mth.sin(ph) * 0.08F * walk
+				+ Mth.sin(Minecraft.getInstance().player.tickCount * 0.09F) * 0.02F;
+			com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow = com.mzcod.tacticalmovement.client.animation.FpCrawl.elbow(
+				com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow, true, env);
 			// Crouch: pull the sword arm in toward the chest (scaled by the crouch blend).
 			com.mzcod.tacticalmovement.client.animation.FpStanceAnim.applyCrouchSwordArm(poseStack, side);
 			com.mzcod.tacticalmovement.client.animation.SwordInspect.applyArm(poseStack, side);
@@ -124,6 +151,22 @@ public abstract class FirstPersonHandsRendererMixin {
 			poseStack.translate(TacticalPoseDebug.fpSwordSlide * 0.7071F, TacticalPoseDebug.fpSwordSlide * 0.7071F, 0.0F);
 			state.mainHandRenderState.submit(poseStack, submitNodeCollector, lightCoords, OverlayTexture.NO_OVERLAY, 0);
 			poseStack.popPose();
+			// Prone: the off hand crawls too (and pushes you up), mirrored from the sword arm's resting place
+			if (com.mzcod.tacticalmovement.client.animation.FpCrawl.showOffHand()
+				&& com.mzcod.tacticalmovement.client.animation.SwordInspect.offWeight() <= 0.001F
+				&& Minecraft.getInstance().player.getOffhandItem().isEmpty()) {
+				int o = -side;
+				poseStack.pushPose();
+				com.mzcod.tacticalmovement.client.animation.FpCrawl.applyArm(poseStack, o, false, 0.0F);
+				poseStack.translate(o * (-0.46F + TacticalPoseDebug.fpArmX), 0.16F + TacticalPoseDebug.fpArmY, 0.10F + TacticalPoseDebug.fpArmZ);
+				poseStack.rotateDegrees(Axis.XP, -12.0F + TacticalPoseDebug.fpArmXR);
+				poseStack.rotateDegrees(Axis.YP, o * (-12.0F + TacticalPoseDebug.fpArmYR));
+				poseStack.rotateDegrees(Axis.ZP, o * (42.0F + TacticalPoseDebug.fpArmZR));
+				com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow = com.mzcod.tacticalmovement.client.animation.FpCrawl.elbow(0.22F, false, 0.0F);
+				this.renderPlayerArm(poseStack, submitNodeCollector, lightCoords, inverseArmHeight, 0.0F, mainArm.getOpposite(), playerState);
+				poseStack.popPose();
+				com.mzcod.tacticalmovement.client.cutscene.body.PlayerRig.fpElbow = 0.22F;
+			}
 			// Inspect: the other arm comes up to hold the tip of the blade.
 			if (com.mzcod.tacticalmovement.client.animation.SwordInspect.offWeight() > 0.001F) {
 				poseStack.pushPose();

@@ -21,11 +21,23 @@ public final class TacticalMovement implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(MovementRequestPayload.TYPE, MovementRequestPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.ReloadRequestPayload.TYPE,
 			com.mzcod.tacticalmovement.network.ReloadRequestPayload.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.NoclipTogglePayload.TYPE,
+			com.mzcod.tacticalmovement.network.NoclipTogglePayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MovementStatePayload.TYPE, MovementStatePayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.GameOverPayload.TYPE,
+			com.mzcod.tacticalmovement.network.GameOverPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.NoclipStatePayload.TYPE,
+			com.mzcod.tacticalmovement.network.NoclipStatePayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.StaminaPayload.TYPE,
 			com.mzcod.tacticalmovement.network.StaminaPayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.DownedPayload.TYPE,
 			com.mzcod.tacticalmovement.network.DownedPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.BloodPayload.TYPE,
+			com.mzcod.tacticalmovement.network.BloodPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.RoundPayload.TYPE,
+			com.mzcod.tacticalmovement.network.RoundPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.RisePayload.TYPE,
+			com.mzcod.tacticalmovement.network.RisePayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(MovementRequestPayload.TYPE,
 			(payload, context) -> ServerMovementController.handleRequest(context.player(), payload.action()));

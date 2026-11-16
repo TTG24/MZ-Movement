@@ -19,7 +19,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(PlayerModel.class)
 public abstract class PlayerModelMixin {
-	private static net.minecraft.world.entity.LivingEntity.SwingDescription tacticalMovement$lastSwing;
+	private static final java.util.Map<Integer, net.minecraft.world.entity.LivingEntity.SwingDescription> tacticalMovement$lastSwing =
+		new java.util.HashMap<>();
 
 	// Debug slow-motion: replace the swing progress BEFORE vanilla's setupAnim reads it, so vanilla's
 	// own attack motion, the body twist and the tactical sword swing all play at the same slowed speed.
@@ -27,15 +28,16 @@ public abstract class PlayerModelMixin {
 	@Inject(method = "setupAnim", at = @At("HEAD"))
 	private void tacticalMovement$slowSwing(AvatarRenderState state, CallbackInfo ci) {
 		TacticalRenderStateAccess access = (TacticalRenderStateAccess) state;
-		if (access.tacticalMovement$isLocalPlayer() && access.tacticalMovement$isHoldingSword()) {
-			// Vanilla only runs its attack pose while currentSwing is set, and clears it when the
-			// real (fast) swing ends. Remember it and keep it set while the slowed swing plays.
+		if (access.tacticalMovement$isHoldingSword()) {
+			// Every player's sword slash plays on its own smooth timeline (wind-up, cut, follow-through) instead of vanilla's
+			// quick even snap. Vanilla only runs its attack pose while currentSwing is set, and clears it when the real (fast)
+			// swing ends: remember it and keep it set while the smooth slash plays out.
 			if (state.currentSwing != null) {
-				tacticalMovement$lastSwing = state.currentSwing;
+				tacticalMovement$lastSwing.put(state.id, state.currentSwing);
 			}
-			state.swingAnimation = TacticalAnimations.slowSwing(state.swingAnimation);
+			state.swingAnimation = com.mzcod.tacticalmovement.client.animation.SmoothSwing.of(state.id, state.swingAnimation);
 			if (state.swingAnimation > 0.0F && state.currentSwing == null) {
-				state.currentSwing = tacticalMovement$lastSwing;
+				state.currentSwing = tacticalMovement$lastSwing.get(state.id);
 			}
 		}
 	}

@@ -49,3 +49,10 @@ run/
 bin/
 .kilo/
 .vscode/
+tools/sfx/wav/
+
+# python caches; vanilla assets copied out of the game jar (not ours to publish) and what is built from them
+__pycache__/
+*.pyc
+tools/models/zombie.png
+tools/models/*.bbmodel

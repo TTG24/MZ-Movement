@@ -142,7 +142,7 @@ public final class TacticalPoseDebug {
 
 	// Standing SWORD SWING speed multiplier (debug slow-motion). 1 = normal vanilla speed,
 	// 0.2 = five times slower. (tune: swordspeed <factor>)
-	public static float swordSwingSpeed = 0.5F;
+	public static float swordSwingSpeed = 0.9F;
 
 	// Standing SWORD ARM extra rotation (radians) added to the sword arm's xRot/yRot/zRot at full
 	// swing envelope (same envelope as the twist). All-zero = none. (tune: swordarm <x> <y> <z>)
@@ -492,6 +492,11 @@ public final class TacticalPoseDebug {
 	// Smooth animation clock in seconds, from the local player's age. Using the age (not a
 	// wall clock) keeps it frame-stable and in sync with the game; the sine is periodic so
 	// the absolute phase doesn't matter.
+	/** The prone animation clock (seconds), for things that move in step with the crawl (the elbows and knees). */
+	public static float clock() {
+		return animationTime();
+	}
+
 	private static float animationTime() {
 		// Wall clock, not level game time: arena/instance worlds on a server can freeze or step the level clock,
 		// which stalled the prone idle/crawl loops. Seconds since start, wrapped to keep float precision.

@@ -3,5 +3,6 @@
   "key.tacticalmovement.stance": "Prone",
   "key.tacticalmovement.crouch": "Crouch (toggle)",
   "key.tacticalmovement.reload": "Reload",
+  "key.tacticalmovement.noclip": "Noclip (operators)",
   "key.tacticalmovement.inspect": "Inspect Sword"
 }

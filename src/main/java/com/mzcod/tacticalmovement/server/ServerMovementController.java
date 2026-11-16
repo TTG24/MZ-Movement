@@ -39,10 +39,15 @@ public final class ServerMovementController {
 			case HELLO -> {
 			}
 			case ENTER_PRONE -> setStance(player, MovementStance.PRONE, 0);
-			case EXIT_PRONE -> setStance(player, MovementStance.STANDING, 0);
+			case EXIT_PRONE -> {
+				if (!state.tacticalMovement$getStance().isLowProfile() || roomFor(player, 1.8)) {
+					setStance(player, MovementStance.STANDING, 0);
+				}
+			}
 			case DOLPHIN_DIVE -> startDive(player, state);
 			case ENTER_CROUCH -> {
-				if (state.tacticalMovement$getStance() != MovementStance.DIVING) {
+				if (state.tacticalMovement$getStance() != MovementStance.DIVING
+					&& (state.tacticalMovement$getStance() != MovementStance.PRONE || roomFor(player, 1.5))) {
 					player.setSprinting(false);
 					setStance(player, MovementStance.CROUCHING, 0);
 				}
@@ -174,6 +179,13 @@ public final class ServerMovementController {
 		player.setDeltaMovement(direction.x * DIVE_HORIZONTAL_SPEED, DIVE_VERTICAL_SPEED, direction.z * DIVE_HORIZONTAL_SPEED);
 		player.connection.send(new ClientboundSetEntityMotionPacket(player));
 		setStance(player, MovementStance.DIVING, DIVE_DURATION_TICKS);
+	}
+
+	/** Room above the feet for a body this tall: prone players can't get up under a block. */
+	private static boolean roomFor(ServerPlayer player, double height) {
+		net.minecraft.world.phys.Vec3 p = player.position();
+		double half = player.getBbWidth() / 2.0;
+		return player.level().noCollision(player, new net.minecraft.world.phys.AABB(p.x - half, p.y, p.z - half, p.x + half, p.y + height, p.z + half).deflate(1.0E-7));
 	}
 
 	private static void setStance(ServerPlayer player, MovementStance stance, int diveTicks) {
