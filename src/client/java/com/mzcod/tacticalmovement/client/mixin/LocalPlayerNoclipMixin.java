@@ -20,6 +20,9 @@ public abstract class LocalPlayerNoclipMixin {
 			self.getAbilities().mayfly = true;
 			self.getAbilities().flying = true;
 			self.noPhysics = true;
+			// With noPhysics, moving never updates onGround, so it stayed true from before noclip went on: aiStep then
+			// switched flying off each tick (creative landing) before moving, and the player walked instead of flying
+			self.setOnGround(false);
 		}
 	}
 

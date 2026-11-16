@@ -36,7 +36,8 @@
 		"PlayerModelElbowMixin",
 		"PlayerLimbAnimMixin",
 		"PlayerRigRenderMixin",
-		"AvatarRendererFpArmMixin"
+		"AvatarRendererFpArmMixin",
+		"CorpsePickMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
