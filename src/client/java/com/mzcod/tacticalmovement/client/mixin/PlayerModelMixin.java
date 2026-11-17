@@ -171,6 +171,12 @@ public abstract class PlayerModelMixin {
 			tacticalState.tacticalMovement$getProneBlend(), move);
 	}
 
+	// Custom poses (/tdb) go last, over every other animation (declared after applyAnimation, so it runs after it)
+	@Inject(method = "setupAnim", at = @At("TAIL"))
+	private void tacticalMovement$customPose(AvatarRenderState state, CallbackInfo ci) {
+		com.mzcod.tacticalmovement.client.animation.CustomPoses.applyModel(state.id, (PlayerModel) (Object) this);
+	}
+
 	// Last stand, layered on the prone pose: the gun arm is raised off the ground and aimed ahead, the support arm stays
 	// down, and one knee is drawn up (offsets in DownedTune, scaled by the transition blend so they ease in).
 	private void tacticalMovement$applyDownedPose(PlayerModel model, float blend) {

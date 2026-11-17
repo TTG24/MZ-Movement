@@ -45,6 +45,12 @@ public abstract class AvatarRendererMixin {
 		}
 	}
 
+	// Custom poses (/tdb): whole-body tilt/lift, after the body turn
+	@Inject(method = "setupRotations", at = @At("TAIL"))
+	private void tacticalMovement$customPose(AvatarRenderState state, PoseStack poseStack, float bodyRot, float entityScale, CallbackInfo ci) {
+		com.mzcod.tacticalmovement.client.animation.CustomPoses.applyRotation(state.id, poseStack);
+	}
+
 	// NOTE: We intentionally do NOT restore swimAmount after setupRotations. Keeping it at 0
 	// for the entire render pipeline means setupAnim uses the normal walking/idle animation
 	// instead of the swimming animation during the get-up transition. This gives the lerp a

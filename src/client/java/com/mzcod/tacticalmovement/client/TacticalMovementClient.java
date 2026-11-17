@@ -128,6 +128,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		ClientTickEvents.START_CLIENT_TICK.register(TacticalMovementClient::tickInput);
 		ClientTickEvents.END_CLIENT_TICK.register(TacticalMovementClient::tickStanceVisual);
 		registerDebugCommands();
+		registerPoseCommands();
 	}
 
 	// Ease the per-entity prone blend toward 1 while low-profile, toward 0 otherwise.
@@ -1011,6 +1012,63 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		TacticalPoseDebug.pose[i][5] = FloatArgumentType.getFloat(ctx, "zr");
 		send(ctx, TacticalPoseDebug.PARTS[i] + " -> " + TacticalPoseDebug.describe(TacticalPoseDebug.pose[i]));
 		return 1;
+	}
+
+	// ---- Custom poses: /tacticaldb (alias /tdb) p|a|stop|tune ----------------------------------------------------
+
+	private static void registerPoseCommands() {
+		ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+			var root = dispatcher.register(ClientCommands.literal("tacticaldb")
+				.requires(source -> source.getPlayer() != null)
+				.then(ClientCommands.literal("p").executes(ctx -> poseCmd(ctx, "shock", false))
+					.then(ClientCommands.argument("name", StringArgumentType.word())
+						.executes(ctx -> poseCmd(ctx, StringArgumentType.getString(ctx, "name"), false))))
+				.then(ClientCommands.literal("a").executes(ctx -> poseCmd(ctx, "shock", true))
+					.then(ClientCommands.argument("name", StringArgumentType.word())
+						.executes(ctx -> poseCmd(ctx, StringArgumentType.getString(ctx, "name"), true))))
+				.then(ClientCommands.literal("stop").executes(ctx -> {
+					boolean was = com.mzcod.tacticalmovement.client.animation.CustomPoses.stop(ctx.getSource().getPlayer().getId());
+					poseMsg(ctx, was ? "Back to normal." : "No pose is on.");
+					return 1;
+				}))
+				.then(ClientCommands.literal("tune").executes(ctx -> {
+					var sb = new StringBuilder("shock pose:");
+					com.mzcod.tacticalmovement.client.animation.CustomPoses.SHOCK.forEach((k, v) ->
+						sb.append(' ').append(k).append('=').append(v[0]).append(',').append(v[1]).append(',').append(v[2]));
+					poseMsg(ctx, sb.toString());
+					return 1;
+				})
+					.then(ClientCommands.argument("part", StringArgumentType.word())
+						.then(ClientCommands.argument("x", FloatArgumentType.floatArg())
+							.then(ClientCommands.argument("y", FloatArgumentType.floatArg())
+								.then(ClientCommands.argument("z", FloatArgumentType.floatArg()).executes(ctx -> {
+									String part = StringArgumentType.getString(ctx, "part");
+									float[] v = com.mzcod.tacticalmovement.client.animation.CustomPoses.SHOCK.get(part);
+									if (v == null) {
+										poseMsg(ctx, "Parts: " + String.join(", ", com.mzcod.tacticalmovement.client.animation.CustomPoses.SHOCK.keySet()));
+										return 0;
+									}
+									v[0] = FloatArgumentType.getFloat(ctx, "x");
+									v[1] = FloatArgumentType.getFloat(ctx, "y");
+									v[2] = FloatArgumentType.getFloat(ctx, "z");
+									poseMsg(ctx, part + " = " + v[0] + ", " + v[1] + ", " + v[2]);
+									return 1;
+								})))))));
+			dispatcher.register(ClientCommands.literal("tdb").requires(source -> source.getPlayer() != null).redirect(root));
+		});
+	}
+
+	private static int poseCmd(CommandContext<FabricClientCommandSource> ctx, String name, boolean anim) {
+		int id = ctx.getSource().getPlayer().getId();
+		boolean ok = anim ? com.mzcod.tacticalmovement.client.animation.CustomPoses.animate(id, name)
+			: com.mzcod.tacticalmovement.client.animation.CustomPoses.pose(id, name);
+		poseMsg(ctx, !ok ? "Unknown " + (anim ? "animation" : "pose") + " '" + name + "'. Available: shock"
+			: anim ? "Playing '" + name + "'." : "Pose '" + name + "' on (F5 to see it). /tdb a to get up, /tdb stop to cancel.");
+		return ok ? 1 : 0;
+	}
+
+	private static void poseMsg(CommandContext<FabricClientCommandSource> ctx, String message) {
+		ctx.getSource().sendFeedback(Component.literal("[tdb] " + message));
 	}
 
 	private static void send(CommandContext<FabricClientCommandSource> ctx, String message) {
