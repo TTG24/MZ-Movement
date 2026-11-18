@@ -34,6 +34,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 	private static KeyMapping stanceKey;
 	private static KeyMapping crouchKey;
 	private static KeyMapping reloadKey;
+	private static KeyMapping grenadeKey;
 	private static KeyMapping inspectKey;
 	private static KeyMapping noclipKey;
 	private static boolean crouchWasDown;
@@ -59,6 +60,9 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		// Reload (R): sent to the server, where the MinecraftZombies plugin reloads the held gun.
 		reloadKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.tacticalmovement.reload", InputConstants.Type.KEYBOARD, InputConstants.KEY_R, CATEGORY));
+		// Grenade (G): sent to the server, where the MinecraftZombies plugin throws one of the player's grenades.
+		grenadeKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+			"key.tacticalmovement.grenade", InputConstants.Type.KEYBOARD, InputConstants.KEY_G, CATEGORY));
 		// Noclip (`): sent to the server, where the NoClip plugin toggles it for operators.
 		noclipKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.tacticalmovement.noclip", InputConstants.Type.KEYBOARD, InputConstants.KEY_GRAVE, CATEGORY));
@@ -105,6 +109,9 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		StaminaHud.register();
 		BloodFx.register();
 		com.mzcod.tacticalmovement.client.animation.ZombieRise.register();
+		com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.register();
+		com.mzcod.tacticalmovement.client.zombie.ZombieModel.register();
+		com.mzcod.tacticalmovement.client.wounds.GoreChunks.register();
 		com.mzcod.tacticalmovement.client.wounds.WoundFx.register();
 		com.mzcod.tacticalmovement.client.wounds.Corpses.register();
 		RoundHud.register();
@@ -206,6 +213,11 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		while (noclipKey.consumeClick()) {
 			if (ClientPlayNetworking.canSend(com.mzcod.tacticalmovement.network.NoclipTogglePayload.TYPE)) {
 				ClientPlayNetworking.send(new com.mzcod.tacticalmovement.network.NoclipTogglePayload());
+			}
+		}
+		while (grenadeKey.consumeClick()) {
+			if (ClientPlayNetworking.canSend(com.mzcod.tacticalmovement.network.GrenadeRequestPayload.TYPE)) {
+				ClientPlayNetworking.send(new com.mzcod.tacticalmovement.network.GrenadeRequestPayload());
 			}
 		}
 		while (reloadKey.consumeClick()) {

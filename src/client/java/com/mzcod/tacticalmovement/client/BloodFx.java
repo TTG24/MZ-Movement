@@ -52,6 +52,7 @@ public final class BloodFx {
 				recent.put(payload.entityId(), mc.level.getGameTime());
 				onHit(mc, new Vec3(payload.x(), payload.y(), payload.z()));
 				com.mzcod.tacticalmovement.client.wounds.WoundFx.onHit(mc, payload);
+				com.mzcod.tacticalmovement.client.wounds.GoreChunks.onHit(mc, payload);
 				if (payload.killed()) {
 					if (payload.kind() == com.mzcod.tacticalmovement.network.BloodPayload.HEADSHOT) {
 						headBurst(mc, payload);

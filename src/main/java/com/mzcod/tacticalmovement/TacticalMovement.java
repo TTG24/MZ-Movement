@@ -21,6 +21,8 @@ public final class TacticalMovement implements ModInitializer {
 		PayloadTypeRegistry.serverboundPlay().register(MovementRequestPayload.TYPE, MovementRequestPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.ReloadRequestPayload.TYPE,
 			com.mzcod.tacticalmovement.network.ReloadRequestPayload.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.GrenadeRequestPayload.TYPE,
+			com.mzcod.tacticalmovement.network.GrenadeRequestPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.NoclipTogglePayload.TYPE,
 			com.mzcod.tacticalmovement.network.NoclipTogglePayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(MovementStatePayload.TYPE, MovementStatePayload.STREAM_CODEC);
@@ -38,6 +40,8 @@ public final class TacticalMovement implements ModInitializer {
 			com.mzcod.tacticalmovement.network.RoundPayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.RisePayload.TYPE,
 			com.mzcod.tacticalmovement.network.RisePayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.CrawlerPayload.TYPE,
+			com.mzcod.tacticalmovement.network.CrawlerPayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(MovementRequestPayload.TYPE,
 			(payload, context) -> ServerMovementController.handleRequest(context.player(), payload.action()));

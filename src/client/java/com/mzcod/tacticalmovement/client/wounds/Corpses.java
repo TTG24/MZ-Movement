@@ -66,12 +66,14 @@ public final class Corpses {
 	/** What the renderer needs for one frame of a corpse. */
 	public record Pose(float offX, float offY, float offZ, Matrix4f torso, boolean headless, boolean red, float headX, float headZ,
 		float rightArmX, float rightArmZ, float leftArmX, float leftArmZ, float rightLegX, float rightLegZ, float leftLegX,
-		float leftLegZ) {
+		float leftLegZ, boolean legless) {
 	}
 
 	private static final class Body {
 		final int id;
 		final boolean headless;
+		/** A crawler's body: its legs were blown off before it died (only the thigh stumps are drawn). */
+		boolean legless;
 		final double[][] pos = new double[POINTS][3];
 		final double[][] old = new double[POINTS][3];
 		final double[][] prev = new double[POINTS][3]; // where they were last tick, for smooth drawing
@@ -130,6 +132,7 @@ public final class Corpses {
 
 		boolean headshot = hit.kind() == BloodPayload.HEADSHOT;
 		Body b = new Body(copy.getId(), headshot);
+		b.legless = com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.isCrawler(hit.entityId());
 		standUp(b, dead);
 		double yawRad = Math.toRadians(dead.yBodyRot);
 		b.footX = dead.getX();
@@ -797,7 +800,7 @@ public final class Corpses {
 		float[] rl = aim(sub(pts[R_FOOT], joint(h, right, up, HIP_SIDE, 0)), right, up, behind, false);
 		float[] ll = aim(sub(pts[L_FOOT], joint(h, right, up, -HIP_SIDE, 0)), right, up, behind, false);
 		return new Pose((float) (n[0] - h[0]), (float) (n[1] - h[1]), (float) (n[2] - h[2]), torso, b.headless, b.age < 6,
-			head[0], head[1], ra[0], ra[1], la[0], la[1], rl[0], rl[1], ll[0], ll[1]);
+			head[0], head[1], ra[0], ra[1], la[0], la[1], rl[0], rl[1], ll[0], ll[1], b.legless);
 	}
 
 	/**
@@ -831,9 +834,16 @@ public final class Corpses {
 	}
 
 	/** Head, arms and legs of a corpse, and no head after a headshot. Every zombie model passes here (models are shared). */
+	/** How much of the leg a crawler's stump keeps (as the model's crawler animations: zombie_anims.py STUMP). */
+	private static final float STUMP = 0.45F;
+
 	public static void applyLimbs(HumanoidModel<?> m, LivingEntityRenderState state) {
 		Pose p = state.getData(POSE);
 		m.head.visible = p == null || !p.headless();
+		// A crawler's corpse keeps only stumps (the model is shared by every zombie, so this is set each time)
+		float leg = p != null && p.legless() ? STUMP : 1.0F;
+		m.rightLeg.yScale = leg;
+		m.leftLeg.yScale = leg;
 		if (p == null) {
 			return;
 		}

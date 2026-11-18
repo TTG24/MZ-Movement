@@ -19,8 +19,6 @@ public final class ZombieRise {
 	private static final float DEG = Mth.PI / 180.0F;
 	/** entity id -> System.nanoTime() the rise started, and its length in seconds */
 	private static final Map<Integer, long[]> RISING = new HashMap<>();
-	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("tacticalmovement");
-	private static final java.util.Set<Integer> LOGGED = new java.util.HashSet<>();
 	/** Rise time of the entity a render state is for (set when the state is filled in, from that entity's id). */
 	public static final net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey<Float> TIME =
 		net.fabricmc.fabric.api.client.rendering.v1.RenderStateDataKey.create(() -> "tacticalmovement:rise_time");
@@ -30,9 +28,6 @@ public final class ZombieRise {
 
 	public static void register() {
 		ClientPlayNetworking.registerGlobalReceiver(RisePayload.TYPE, (payload, context) -> {
-			var lvl = context.client().level;
-			LOG.info("[ZombieRise] rise for entity {} ({} ticks), in level yet: {}", payload.entityId(), payload.ticks(),
-				lvl != null && lvl.getEntity(payload.entityId()) != null);
 			RISING.put(payload.entityId(), new long[] {System.nanoTime(), payload.ticks() * 50_000_000L});
 		});
 	}
@@ -60,16 +55,12 @@ public final class ZombieRise {
 			RISING.remove(entityId);
 			return null;
 		}
-		if (LOGGED.add(entityId)) {
-			LOG.info("[ZombieRise] animating entity {}", entityId);
-		}
 		// The keyframes are LENGTH long; a different length from the server just plays them faster or slower
 		return (float) elapsed / r[1] * ZombieRiseKeys.LENGTH;
 	}
 
 	/** Debug: when >= 0, every zombie is held at this point of the rise (keyframe seconds). */
 	public static float freezeAt = -1;
-	private static long lastApplyLog;
 
 	/** Debug: zombies within range of the player start rising now, over the given seconds. Returns how many. */
 	public static int debugRise(net.minecraft.client.Minecraft mc, double range, float seconds) {
@@ -81,7 +72,6 @@ public final class ZombieRise {
 		for (var e : mc.level.entitiesForRendering()) {
 			if (e instanceof net.minecraft.world.entity.monster.zombie.Zombie && e.distanceTo(mc.player) <= range) {
 				RISING.put(e.getId(), new long[] {now, (long) (seconds * 1e9)});
-				LOGGED.remove(e.getId());
 				n++;
 			}
 		}
@@ -95,11 +85,6 @@ public final class ZombieRise {
 			return;
 		}
 		float t = time;
-		long nowMs = System.currentTimeMillis();
-		if (nowMs - lastApplyLog > 1000) {
-			lastApplyLog = nowMs;
-			LOG.info("[ZombieRise] posing a {} at t={}", m.getClass().getSimpleName(), t);
-		}
 		float w = smooth((ZombieRiseKeys.LENGTH - t) / BLEND_OUT);
 
 		float[] root = sample(ZombieRiseKeys.ROOT_POS, t);
@@ -138,11 +123,6 @@ public final class ZombieRise {
 	 */
 	public static com.mzcod.tacticalmovement.client.cutscene.body.BodyRig.Pose rigPose(HumanoidRenderState s, float t,
 		com.mzcod.tacticalmovement.client.cutscene.body.BodyRig.Pose normal) {
-		long nowMs = System.currentTimeMillis();
-		if (nowMs - lastApplyLog > 1000) {
-			lastApplyLog = nowMs;
-			LOG.info("[ZombieRise] posing a rig zombie at t={}", t);
-		}
 		float[] root = sample(ZombieRiseKeys.ROOT_POS, t);
 		float[] torso = sample(ZombieRiseKeys.TORSO_ROT, t);
 		float[] head = sample(ZombieRiseKeys.HEAD_ROT, t);

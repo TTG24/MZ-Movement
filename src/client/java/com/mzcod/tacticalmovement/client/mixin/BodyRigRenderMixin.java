@@ -41,6 +41,14 @@ public abstract class BodyRigRenderMixin {
 			&& !state.isBaby && !state.isInvisible && state.deathTime <= 0.0F
 			&& state.getData(com.mzcod.tacticalmovement.client.wounds.Corpses.POSE) == null
 			&& com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled) {
+			// The Blockbench model (the same one players without the mod see); the bending body if it isn't there
+			if (state.entityType == net.minecraft.world.entity.EntityTypes.ZOMBIE
+				&& com.mzcod.tacticalmovement.client.zombie.ZombieModel.submit(state, id, this.getTextureLocation(state),
+					com.mzcod.tacticalmovement.client.wounds.WoundFx.textureFor(id),
+					state.getData(com.mzcod.tacticalmovement.client.animation.ZombieRise.TIME), poseStack, collector)) {
+				ci.cancel();
+				return;
+			}
 			BodyRig.submitMobPose(state, com.mzcod.tacticalmovement.client.cutscene.body.ZombieRig.pose(humanoid), this.getTextureLocation(state),
 				com.mzcod.tacticalmovement.client.wounds.WoundFx.textureFor(id), poseStack, collector);
 			ci.cancel();
