@@ -15,6 +15,13 @@ public abstract class CorpsePickMixin {
 	private void tacticalMovement$corpsesNotPickable(CallbackInfoReturnable<Boolean> cir) {
 		// Corpse copies get client-only ids from -1,000,000 down (also ones no longer simulated, still lying there)
 		int id = ((LivingEntity) (Object) this).getId();
+		// BlockBlocker's wall colliders are invisible shulkers: no crosshair target or attack indicator on them, so you
+		// aim at whatever is behind the wall piece (the server already lets those hits through)
+		LivingEntity self = (LivingEntity) (Object) this;
+		if (self instanceof net.minecraft.world.entity.monster.Shulker && self.isInvisible()) {
+			cir.setReturnValue(false);
+			return;
+		}
 		if (id <= -1_000_000 || Corpses.isCorpse(id)) {
 			cir.setReturnValue(false);
 		}
