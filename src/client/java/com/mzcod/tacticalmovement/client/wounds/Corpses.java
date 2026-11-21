@@ -544,6 +544,17 @@ public final class Corpses {
 		rejoin(b, joint(h, right, up, -HIP_SIDE, 0), L_KNEE, L_FOOT, THIGH, SHIN);
 		rejoinPoint(b, HEAD, n, HEAD_OFFSET);
 
+		// The constraints and collisions above push points around, which in this kind of physics becomes speed: with nothing
+		// to take it off a body resting on the ground slowly spun in place. Whatever lies on the ground loses its sideways
+		// speed (friction), whatever the pushes added.
+		for (int i = 0; i < POINTS; i++) {
+			double[] p = b.pos[i], o = b.old[i];
+			if (!free(level, p[0], p[1] - 0.06, p[2], RADIUS[i])) {
+				o[0] = p[0] - (p[0] - o[0]) * 0.5;
+				o[2] = p[2] - (p[2] - o[2]) * 0.5;
+			}
+		}
+
 		// Asleep once it has stopped moving for a while
 		if (moved < 0.003 && b.age > SLUMP_TICKS + 10 && (b.anim == null || b.age > b.animTicks)) {
 			if (++b.still > 30) {

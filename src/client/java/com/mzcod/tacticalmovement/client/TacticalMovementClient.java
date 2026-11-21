@@ -142,6 +142,27 @@ public final class TacticalMovementClient implements ClientModInitializer {
 	// Drop-in is a touch faster than the get-up for a tactical feel. Purely visual, so it is
 	// applied to every player in the client world (local + remote). Speed is live-tunable via
 	// /tacticaledbg pronespeed <rate> (TacticalPoseDebug.proneBlendRate).
+	private static int swapHeldTicks;
+
+	/**
+	 * Holding F (swap hands) only repeats from the keyboard while no other key is pressed, so hold-to-repair stopped as soon
+	 * as the player moved. While F is down and a movement key is too, resend the swap every few ticks ourselves.
+	 */
+	private static void keepSwapHeld(Minecraft client) {
+		if (client.player == null || client.gui.screen() != null || !client.options.keySwapOffhand.isDown()) {
+			swapHeldTicks = 0;
+			return;
+		}
+		swapHeldTicks++;
+		var o = client.options;
+		boolean moving = o.keyUp.isDown() || o.keyDown.isDown() || o.keyLeft.isDown() || o.keyRight.isDown();
+		if (moving && swapHeldTicks > 6 && swapHeldTicks % 4 == 0) {
+			client.player.connection.send(new net.minecraft.network.protocol.game.ServerboundPlayerActionPacket(
+				net.minecraft.network.protocol.game.ServerboundPlayerActionPacket.Action.SWAP_ITEM_WITH_OFFHAND,
+				net.minecraft.core.BlockPos.ZERO, net.minecraft.core.Direction.DOWN));
+		}
+	}
+
 	private static void tickStanceVisual(Minecraft client) {
 		if (client.level == null) {
 			return;
@@ -186,6 +207,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 	}
 
 	private static void tickInput(Minecraft client) {
+		keepSwapHeld(client);
 		if (!textureRegistered && client.getTextureManager() != null) {
 			textureRegistered = true;
 			NativeImage pixel = new NativeImage(1, 1, false);
