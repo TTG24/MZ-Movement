@@ -1,3 +1,18 @@
+# MZ-Movement 1.2.1
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API.
+
+## New
+
+- **Five zombie looks** (uniform, greatcoat, officer, torn, bandaged), each with matching gore and ragdoll joints.
+- **A real open mouth** with teeth, and blood that runs down from wounds.
+- **Ragdolls** no longer pass through themselves, and corpses hang their jaw open.
+
+## Fixed
+
+- Ragdolls spinning in place.
+- Hold-F repair stopping when you move.
+
 # MZ-Movement 1.2.0
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API.
