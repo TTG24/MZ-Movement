@@ -30,7 +30,20 @@ public abstract class BodyRigRenderMixin {
 		// A cutscene zombie on a rig
 		Integer id = state.getData(com.mzcod.tacticalmovement.client.wounds.WoundFx.ENTITY_ID);
 		if (id != null && BodyRig.has(id) && !(state instanceof AvatarRenderState)) {
-			BodyRig.submitMob(state, id, this.getTextureLocation(state), poseStack, collector);
+			// Death-scene zombies wear the arena looks (zombie_1..5, same 64x64 humanoid layout), picked from their id
+			net.minecraft.resources.Identifier texture = state.entityType == net.minecraft.world.entity.EntityTypes.ZOMBIE && !state.isBaby
+				? com.mzcod.tacticalmovement.client.zombie.ZombieModel.skin(id) : this.getTextureLocation(state);
+			BodyRig.submitMob(state, id, texture, poseStack, collector);
+			ci.cancel();
+			return;
+		}
+		// A zombie's corpse: the Blockbench model, bent at its joints by the ragdoll (the old straight-limbed one if it isn't there)
+		com.mzcod.tacticalmovement.client.wounds.Corpses.Pose corpse = state.getData(com.mzcod.tacticalmovement.client.wounds.Corpses.POSE);
+		if (id != null && corpse != null && !(state instanceof AvatarRenderState) && !state.isBaby
+			&& state.entityType == net.minecraft.world.entity.EntityTypes.ZOMBIE
+			&& com.mzcod.tacticalmovement.client.animation.ZombieAnim.enabled
+			&& com.mzcod.tacticalmovement.client.zombie.ZombieModel.submitCorpse(state, corpse,
+				com.mzcod.tacticalmovement.client.wounds.WoundFx.textureFor(id), poseStack, collector)) {
 			ci.cancel();
 			return;
 		}

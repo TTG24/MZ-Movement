@@ -25,6 +25,29 @@ public final class WoundFx {
 
 	private static final Random RANDOM = new Random();
 	private static final Map<Integer, Wounds> WOUNDS = new HashMap<>();
+
+	/** A trickle of blood running down from a wound, a pixel at a time, until it has run its length or reaches the edge. */
+	private static final class Trickle {
+		final Wounds wounds;
+		final int x;
+		final int[] rect;
+		int y;
+		int left;
+		int wait;
+		final int every;
+
+		Trickle(Wounds wounds, int x, int y, int length, int[] rect) {
+			this.wounds = wounds;
+			this.x = x;
+			this.y = y;
+			this.left = length;
+			this.rect = rect;
+			this.every = 3 + RANDOM.nextInt(6); // ticks per pixel: some run, some ooze
+			this.wait = every;
+		}
+	}
+
+	private static final java.util.List<Trickle> TRICKLES = new java.util.ArrayList<>();
 	private static int counter;
 
 	private WoundFx() {
@@ -39,6 +62,7 @@ public final class WoundFx {
 				clear(mc);
 				return;
 			}
+			runTrickles();
 			if (mc.level.getGameTime() % 20 != 0) {
 				return;
 			}
@@ -48,13 +72,64 @@ public final class WoundFx {
 				var entity = mc.level.getEntity(e.getKey());
 				if (entity == null || entity.isRemoved()) {
 					mc.getTextureManager().release(e.getValue().id());
+					Wounds gone = e.getValue();
+					TRICKLES.removeIf(t -> t.wounds == gone);
 					it.remove();
 				}
 			}
 		});
 	}
 
+	/** Moves every trickle on: its head (a bright bead) a pixel down when it's due, the pixel behind turning to a run. */
+	private static void runTrickles() {
+		if (TRICKLES.isEmpty()) {
+			return;
+		}
+		java.util.Set<Wounds> changed = new java.util.HashSet<>();
+		for (Iterator<Trickle> it = TRICKLES.iterator(); it.hasNext();) {
+			Trickle t = it.next();
+			if (--t.wait > 0) {
+				continue;
+			}
+			t.wait = t.every;
+			NativeImage img = t.wounds.texture().getPixels();
+			if (img == null) {
+				it.remove();
+				continue;
+			}
+			put(img, t.x, t.y, DRIP, t.rect, false);
+			t.y++;
+			t.left--;
+			if (t.left <= 0 || t.y >= t.rect[1] + t.rect[3]) {
+				it.remove();
+			} else {
+				put(img, t.x, t.y, BLOOD, t.rect, false);
+				// Now and then it wanders a pixel sideways, like blood finding its way down
+				if (RANDOM.nextInt(6) == 0) {
+					int nx = t.x + (RANDOM.nextBoolean() ? 1 : -1);
+					if (nx >= t.rect[0] && nx < t.rect[0] + t.rect[2]) {
+						it.remove();
+						TRICKLES.add(new Trickle(t.wounds, nx, t.y, t.left, t.rect));
+						changed.add(t.wounds);
+						break; // (the list changed: the rest move next tick)
+					}
+				}
+			}
+			changed.add(t.wounds);
+		}
+		for (Wounds w : changed) {
+			w.texture().upload();
+		}
+	}
+
+	private static void trickle(Wounds w, int x, int y, int length, int[] rect) {
+		if (TRICKLES.size() < 400) {
+			TRICKLES.add(new Trickle(w, x, y, length, rect));
+		}
+	}
+
 	private static void clear(Minecraft mc) {
+		TRICKLES.clear();
 		for (Wounds w : WOUNDS.values()) {
 			mc.getTextureManager().release(w.id());
 		}
@@ -152,8 +227,16 @@ public final class WoundFx {
 		}
 		if (hit.kind() == BloodPayload.SLASH) {
 			paintSlash(img, uv[0], uv[1], rect);
+			// A cut bleeds along its length
+			for (int i = 0; i < 2 + RANDOM.nextInt(2); i++) {
+				trickle(w, uv[0] + RANDOM.nextInt(5) - 2, uv[1] + 1, 3 + RANDOM.nextInt(6), rect);
+			}
 		} else {
 			paintBullet(img, uv[0], uv[1], rect);
+			trickle(w, uv[0], uv[1] + 2, 3 + RANDOM.nextInt(7), rect);
+			if (RANDOM.nextBoolean()) {
+				trickle(w, uv[0] + (RANDOM.nextBoolean() ? 1 : -1), uv[1] + 1, 2 + RANDOM.nextInt(4), rect);
+			}
 		}
 		w.texture().upload();
 	}
@@ -172,10 +255,7 @@ public final class WoundFx {
 			put(img, u + (RANDOM.nextBoolean() ? 1 : -1), v + (RANDOM.nextBoolean() ? 1 : -1), BLOOD, rect, false);
 		}
 		put(img, u, v, HOLE, rect, true);
-		int drip = RANDOM.nextInt(4);
-		for (int i = 2; i < 2 + drip; i++) {
-			put(img, u, v + i, DRIP, rect, false);
-		}
+		// (the blood running from it: a trickle, WoundFx.runTrickles)
 	}
 
 	private static void paintSlash(NativeImage img, int u, int v, int[] rect) {
@@ -188,9 +268,6 @@ public final class WoundFx {
 			int y = v + (int) Math.round(i * slope);
 			put(img, x, y - 1, WOUND, rect, false);
 			put(img, x, y, HOLE, rect, true);
-			if (RANDOM.nextInt(3) == 0) {
-				put(img, x, y + 1, DRIP, rect, false);
-			}
 		}
 	}
 

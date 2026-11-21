@@ -26,12 +26,21 @@ import java.util.Map;
  * does (ZombieModelHook.variant), so everyone sees it move the same way. Which one plays follows how fast its legs move
  * (vanilla's walk animation speed), cross-faded, played faster or slower to match; the claw plays over the upper body
  * when it swings; the head turns with its look. A crawler (ZombieCrawlers) falls when its legs blow off, then crawls.
- * A rising zombie plays "rise". Corpses are not drawn here (the ragdoll, Corpses, draws those).
+ * A rising zombie plays "rise".
+ *
+ * Each zombie wears one of five looks (zombie_1..5.png, tools/models/zombie_skins.py), picked from its id like its
+ * animation styles; the server gives players without the mod the matching mz_zombie_N model.
+ *
+ * Corpses (the ragdoll, Corpses) are drawn with the same model and look: every bone is placed from the ragdoll's points
+ * (shoulder, elbow, hand; hip, knee, foot; neck, head), so it bends where the model bends.
  */
 public final class ZombieModel {
 	private static final Identifier MODEL = TacticalMovement.id("models/mz_zombie.bbmodel");
 	private static final Identifier EYES = TacticalMovement.id("textures/entity/zombie_eyes.png");
 	private static final Identifier GORE = TacticalMovement.id("textures/entity/zombie_gore.png");
+	/** How many looks there are (must match ZombieModelHook.LOOKS on the server). */
+	private static final int LOOKS = 5;
+	private static final Identifier[] SKINS = new Identifier[LOOKS];
 	private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("tacticalmovement");
 	private static final float FADE = 0.25F;
 	private static final int B = 9; // floats per bone in a pose: rotation, position, scale
@@ -81,6 +90,15 @@ public final class ZombieModel {
 			}
 		}
 		return model;
+	}
+
+	/** The look (skin) of the zombie with this (server) entity id. */
+	public static Identifier skin(int entityId) {
+		int v = variant(entityId, LOOKS, 7) - 1;
+		if (SKINS[v] == null) {
+			SKINS[v] = TacticalMovement.id("textures/entity/zombie_" + (v + 1) + ".png");
+		}
+		return SKINS[v];
 	}
 
 	/** Which of an animation's styles a zombie uses (1..count). Must match ZombieModelHook.variant on the server. */
@@ -222,14 +240,39 @@ public final class ZombieModel {
 		}
 		float[] pose = pose(m, id, state, riseTime);
 		Matrix4f[] bones = matrices(m, pose);
-		int overlay = OverlayTexture.pack(OverlayTexture.u(0.0F), OverlayTexture.v(state.hasRedOverlay));
-		int light = state.lightCoords;
-
 		poseStack.pushPose();
 		// Like vanilla's living renderer: turned to the body's facing, sized, then from pixels to blocks (the model's front
 		// is -z, its right +x, y up: Blockbench's own axes)
 		poseStack.mulPose(new Matrix4f().rotationY((float) Math.toRadians(180.0F - state.bodyRot)));
 		poseStack.scale(state.scale, state.scale, state.scale);
+		emit(m, bones, state, skin(id), wounds, poseStack, collector);
+		poseStack.popPose();
+		return true;
+	}
+
+	/**
+	 * Draws a corpse with the model, its bones placed from the ragdoll's points. False when the model isn't available.
+	 *
+	 * @param wounds the corpse's wound overlay, or null
+	 */
+	public static boolean submitCorpse(LivingEntityRenderState state, com.mzcod.tacticalmovement.client.wounds.Corpses.Pose corpse,
+		Identifier wounds, PoseStack poseStack, SubmitNodeCollector collector) {
+		BbModel m = model();
+		if (m == null || corpse.points() == null) {
+			return false;
+		}
+		Matrix4f[] bones = corpseMatrices(m, corpse);
+		poseStack.pushPose();
+		emit(m, bones, state, skin(corpse.source()), wounds, poseStack, collector);
+		poseStack.popPose();
+		return true;
+	}
+
+	/** Emits the model's faces with the given bone matrices (pixels), from the pose stack's origin. */
+	private static void emit(BbModel m, Matrix4f[] bones, LivingEntityRenderState state, Identifier skin, Identifier wounds,
+		PoseStack poseStack, SubmitNodeCollector collector) {
+		int overlay = OverlayTexture.pack(OverlayTexture.u(0.0F), OverlayTexture.v(state.hasRedOverlay));
+		int light = state.lightCoords;
 		poseStack.scale(1 / 16.0F, 1 / 16.0F, 1 / 16.0F);
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(skin),
 			(p, vc) -> draw(m, bones, p, vc, 0, false, light, overlay));
@@ -241,8 +284,101 @@ public final class ZombieModel {
 		}
 		collector.order(2).submitCustomGeometry(poseStack, RenderTypes.entityTranslucentEmissive(EYES),
 			(p, vc) -> draw(m, bones, p, vc, 1, true, 0xF000F0, OverlayTexture.NO_OVERLAY));
-		poseStack.popPose();
-		return true;
+	}
+
+	// ------------------------------------------------------------------------------------------------------- corpses
+
+	private static final Matrix4f HIDDEN = new Matrix4f().scaling(0);
+	/** How far a corpse's jaw hangs open (degrees). */
+	private static final float DEAD_JAW = 28;
+
+	/**
+	 * Every bone's matrix (pixels, from the hips point) for a ragdoll: the torso turned to the ragdoll's torso, each limb
+	 * part turned to point from its joint to the next point and moved so its pivot sits on the joint.
+	 */
+	private static Matrix4f[] corpseMatrices(BbModel m, com.mzcod.tacticalmovement.client.wounds.Corpses.Pose c) {
+		double[][] pts = c.points();
+		double[][] f = com.mzcod.tacticalmovement.client.wounds.Corpses.frame(pts);
+		double[] up = f[0], right = f[1];
+		double[] neck = pts[com.mzcod.tacticalmovement.client.wounds.Corpses.NECK];
+		double[] hips = pts[com.mzcod.tacticalmovement.client.wounds.Corpses.HIPS];
+		Matrix4f[] out = new Matrix4f[m.bones.size()];
+		for (int i = 0; i < out.length; i++) {
+			BbModel.Bone b = m.bones.get(i);
+			out[i] = corpseBone(b, c, pts, f, neck, hips, right, up);
+		}
+		return out;
+	}
+
+	private static Matrix4f corpseBone(BbModel.Bone b, com.mzcod.tacticalmovement.client.wounds.Corpses.Pose c, double[][] pts,
+		double[][] f, double[] neck, double[] hips, double[] right, double[] up) {
+		boolean r = b.name.startsWith("right_");
+		double side = r ? 1 : -1;
+		double[] shoulder = com.mzcod.tacticalmovement.client.wounds.Corpses.joint(neck, right, up,
+			side * 0.3125, -0.125);
+		double[] hip = com.mzcod.tacticalmovement.client.wounds.Corpses.joint(hips, right, up, side * 0.119, 0);
+		int elbow = r ? com.mzcod.tacticalmovement.client.wounds.Corpses.R_ELBOW : com.mzcod.tacticalmovement.client.wounds.Corpses.L_ELBOW;
+		int hand = r ? com.mzcod.tacticalmovement.client.wounds.Corpses.R_HAND : com.mzcod.tacticalmovement.client.wounds.Corpses.L_HAND;
+		int knee = r ? com.mzcod.tacticalmovement.client.wounds.Corpses.R_KNEE : com.mzcod.tacticalmovement.client.wounds.Corpses.L_KNEE;
+		int foot = r ? com.mzcod.tacticalmovement.client.wounds.Corpses.R_FOOT : com.mzcod.tacticalmovement.client.wounds.Corpses.L_FOOT;
+		String part = b.name.startsWith("right_") ? b.name.substring(6) : b.name.startsWith("left_") ? b.name.substring(5) : b.name;
+		// The elbow and knee where the upper arm and thigh really end (the ragdoll's points can be a little off when a hand
+		// or foot is caught on a block): the forearm and shin hang from there, aimed at the hand and foot
+		double[] upperDir = dir(shoulder, pts[elbow]), thighDir = dir(hip, pts[knee]);
+		double[] elbowAt = {shoulder[0] + upperDir[0] * 0.25, shoulder[1] + upperDir[1] * 0.25, shoulder[2] + upperDir[2] * 0.25};
+		double[] kneeAt = {hip[0] + thighDir[0] * 0.375, hip[1] + thighDir[1] * 0.375, hip[2] + thighDir[2] * 0.375};
+		return switch (part) {
+			case "root", "torso", "chest" -> place(b, hips, f[1], f[0], 0, 12, 0);
+			case "hi_head" -> c.headless() ? HIDDEN
+				: place(b, neck, right, dir(neck, pts[com.mzcod.tacticalmovement.client.wounds.Corpses.HEAD]), 0, 24, 0);
+			// The jaw hangs slack: the head's place, then dropped open about its hinge (negative X drops the front, as the
+			// model's animations do)
+			case "jaw" -> c.headless() ? HIDDEN
+				: place(b, neck, right, dir(neck, pts[com.mzcod.tacticalmovement.client.wounds.Corpses.HEAD]), 0, 24, 0)
+					.translate(b.px, b.py, b.pz).rotateX((float) Math.toRadians(-DEAD_JAW)).translate(-b.px, -b.py, -b.pz);
+			case "arm" -> place(b, shoulder, right, neg(upperDir), side * 5, 22, 0);
+			case "forearm", "hand" -> place(b, elbowAt, right, dir(pts[hand], elbowAt), side * 5, 18, 0);
+			case "leg" -> place(b, hip, right, neg(thighDir), side * 1.9, 12, 0);
+			case "wound" -> c.legless() ? place(b, hip, right, neg(thighDir), side * 1.9, 12, 0) : HIDDEN;
+			case "shin", "foot" -> c.legless() ? HIDDEN : place(b, kneeAt, right, dir(pts[foot], kneeAt), side * 1.9, 6, 0);
+			default -> place(b, hips, f[1], f[0], 0, 12, 0);
+		};
+	}
+
+	private static double[] neg(double[] v) {
+		return new double[] {-v[0], -v[1], -v[2]};
+	}
+
+	/** The unit direction from a to b (straight up when they meet). */
+	private static double[] dir(double[] a, double[] b) {
+		double x = b[0] - a[0], y = b[1] - a[1], z = b[2] - a[2];
+		double l = Math.sqrt(x * x + y * y + z * z);
+		return l < 1.0E-6 ? new double[] {0, 1, 0} : new double[] {x / l, y / l, z / l};
+	}
+
+	/**
+	 * A bone's matrix: its model point (px, py, pz) on {@code at} (blocks from the hips), its +y along {@code upDir}, its +x
+	 * as near {@code rightHint} as that allows, +z behind (the model's front is -z).
+	 */
+	private static Matrix4f place(BbModel.Bone b, double[] at, double[] rightHint, double[] upDir, double px, double py, double pz) {
+		double[] y = upDir;
+		double k = rightHint[0] * y[0] + rightHint[1] * y[1] + rightHint[2] * y[2];
+		double[] x = {rightHint[0] - y[0] * k, rightHint[1] - y[1] * k, rightHint[2] - y[2] * k};
+		double l = Math.sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);
+		if (l < 1.0E-4) {
+			// Pointing along its own side: any side at right angles
+			x = Math.abs(y[1]) < 0.9 ? new double[] {y[2], 0, -y[0]} : new double[] {1, 0, 0};
+			l = Math.sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]);
+		}
+		x = new double[] {x[0] / l, x[1] / l, x[2] / l};
+		double[] z = {x[1] * y[2] - x[2] * y[1], x[2] * y[0] - x[0] * y[2], x[0] * y[1] - x[1] * y[0]};
+		Matrix4f rot = new Matrix4f(
+			(float) x[0], (float) x[1], (float) x[2], 0,
+			(float) y[0], (float) y[1], (float) y[2], 0,
+			(float) z[0], (float) z[1], (float) z[2], 0,
+			0, 0, 0, 1);
+		return new Matrix4f().translate((float) (at[0] * 16), (float) (at[1] * 16), (float) (at[2] * 16)).mul(rot)
+			.translate((float) -px, (float) -py, (float) -pz);
 	}
 
 	/** Each bone's matrix (pixels, model space): parent * T(pivot + offset) * Rz * Ry * Rx * S * T(-pivot). */

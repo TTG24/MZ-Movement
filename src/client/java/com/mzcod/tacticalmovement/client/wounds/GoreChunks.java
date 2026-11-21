@@ -29,9 +29,19 @@ import java.util.Random;
  *
  * How many and how hard: a bullet knocks out one or two, a headshot more, a knife slash a couple, a grenade blast a lot,
  * flung away from it; killing hits tear off twice as many.
+ *
+ * Each chunk is cut from the zombie's own look (ZombieModel.skin), from the part that was hit: its head, its uniform's
+ * tunic or sleeves, or its trousers and boots.
  */
 public final class GoreChunks {
-	private static final Identifier SKIN = Identifier.withDefaultNamespace("textures/entity/zombie/zombie.png");
+	/** Patches of the skin to cut chunks from, per part: {u0, v0, width, height} (the sides, not the face). */
+	private static final int[][] PATCHES = {
+		{0, 8, 32, 5}, // head (the sides and back above the mouth)
+		{16, 20, 24, 12}, // body
+		{40, 20, 16, 12}, // arm
+		{0, 20, 16, 12}, // leg
+	};
+	public static final int HEAD = 0, BODY = 1, ARM = 2, LEG = 3;
 	private static final Identifier MEAT = TacticalMovement.id("textures/entity/zombie_gore.png");
 	private static final int MAX = 220;
 	private static final double GRAVITY = 0.04, DRAG = 0.98;
@@ -45,18 +55,20 @@ public final class GoreChunks {
 		float spin;
 		final float size; // edge, blocks
 		final float u, v; // corner of its patch of zombie skin (pixels)
+		final Identifier skin;
 		int age;
 		final int life;
 		boolean resting;
 
-		Chunk(double x, double y, double z, float size) {
+		Chunk(double x, double y, double z, float size, Identifier skin, int part) {
 			this.x = ox = x;
 			this.y = oy = y;
 			this.z = oz = z;
 			this.size = size;
-			// A patch from the body / arms / legs of the skin (not the face)
-			u = 16 + RANDOM.nextInt(36);
-			v = 20 + RANDOM.nextInt(10);
+			this.skin = skin;
+			int[] p = PATCHES[part];
+			u = p[0] + RANDOM.nextInt(Math.max(1, p[2] - 3));
+			v = p[1] + RANDOM.nextInt(Math.max(1, p[3] - 3));
 			life = 160 + RANDOM.nextInt(100);
 		}
 	}
@@ -86,10 +98,17 @@ public final class GoreChunks {
 			ps.translate(-cam.x, -cam.y, -cam.z);
 			List<Chunk> snapshot = new ArrayList<>(CHUNKS);
 			ClientLevel level = mc.level;
-			ctx.submitNodeCollector().submitCustomGeometry(ps, RenderTypes.entityCutout(SKIN),
-				(pose, vc) -> draw(level, snapshot, pt, pose, vc, true));
+			// One batch per look in use
+			java.util.Set<Identifier> skins = new java.util.HashSet<>();
+			for (Chunk c : snapshot) {
+				skins.add(c.skin);
+			}
+			for (Identifier skin : skins) {
+				ctx.submitNodeCollector().submitCustomGeometry(ps, RenderTypes.entityCutout(skin),
+					(pose, vc) -> draw(level, snapshot, pt, pose, vc, skin));
+			}
 			ctx.submitNodeCollector().submitCustomGeometry(ps, RenderTypes.entityCutout(MEAT),
-				(pose, vc) -> draw(level, snapshot, pt, pose, vc, false));
+				(pose, vc) -> draw(level, snapshot, pt, pose, vc, null));
 			ps.popPose();
 		});
 	}
@@ -125,19 +144,38 @@ public final class GoreChunks {
 		if (hit.killed()) {
 			count *= 2;
 		}
-		spawn(new Vec3(hit.x(), hit.y(), hit.z()), dir, count, speed, 0.2);
+		// Which part was hit: by height on the zombie (a crawler's lying body is all torso and arms)
+		int part = BODY;
+		var zombie = mc.level.getEntity(hit.entityId());
+		if (hit.kind() == BloodPayload.HEADSHOT) {
+			part = HEAD;
+		} else if (zombie != null) {
+			double h = hit.y() - zombie.getY();
+			boolean crawler = com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.isCrawler(hit.entityId());
+			part = crawler ? (RANDOM.nextBoolean() ? BODY : ARM) : h > 1.45 ? HEAD : h < 0.75 ? LEG : RANDOM.nextFloat() < 0.3F ? ARM : BODY;
+		}
+		Identifier skin = com.mzcod.tacticalmovement.client.zombie.ZombieModel.skin(hit.entityId());
+		if (hit.kind() != BloodPayload.HEADSHOT && hit.kind() != BloodPayload.SHOT && hit.kind() != BloodPayload.SLASH) {
+			// A blast tears from all over
+			for (int i = 0; i < count; i++) {
+				int[] parts = {BODY, BODY, ARM, LEG, LEG, HEAD};
+				spawn(new Vec3(hit.x(), hit.y(), hit.z()), dir, 1, speed, 0.3, skin, parts[RANDOM.nextInt(parts.length)]);
+			}
+			return;
+		}
+		spawn(new Vec3(hit.x(), hit.y(), hit.z()), dir, count, speed, 0.2, skin, part);
 	}
 
 	/** A zombie's legs blown off (it became a crawler): big pieces burst out all round its knees and thighs. */
-	public static void legsOff(Vec3 feet) {
-		spawn(feet.add(0, 0.45, 0), Vec3.ZERO, 12, 0.3, 0.5);
+	public static void legsOff(int entityId, Vec3 feet) {
+		spawn(feet.add(0, 0.45, 0), Vec3.ZERO, 12, 0.3, 0.5, com.mzcod.tacticalmovement.client.zombie.ZombieModel.skin(entityId), LEG);
 	}
 
-	private static void spawn(Vec3 at, Vec3 dir, int count, double speed, double spread) {
+	private static void spawn(Vec3 at, Vec3 dir, int count, double speed, double spread, Identifier skin, int part) {
 		boolean outward = dir.lengthSqr() < 1.0E-6;
 		for (int i = 0; i < count; i++) {
 			Chunk c = new Chunk(at.x + (RANDOM.nextDouble() - 0.5) * spread, at.y + (RANDOM.nextDouble() - 0.5) * spread,
-				at.z + (RANDOM.nextDouble() - 0.5) * spread, (outward ? 0.1F : 0.07F) + RANDOM.nextFloat() * 0.09F);
+				at.z + (RANDOM.nextDouble() - 0.5) * spread, (outward ? 0.1F : 0.07F) + RANDOM.nextFloat() * 0.09F, skin, part);
 			if (outward) {
 				double a = RANDOM.nextDouble() * Math.PI * 2;
 				dir = new Vec3(Math.cos(a), 0, Math.sin(a));
@@ -226,8 +264,12 @@ public final class GoreChunks {
 	private static final float[][] NORMALS = {{0, 0, -1}, {0, 0, 1}, {1, 0, 0}, {-1, 0, 0}, {0, 1, 0}, {0, -1, 0}};
 	private static final float[][] CORNER_UV = {{0, 0}, {0, 1}, {1, 1}, {1, 0}};
 
-	/** Three faces of each chunk show skin, the other three the meat it was torn from. */
-	private static void draw(ClientLevel level, List<Chunk> chunks, float pt, PoseStack.Pose pose, VertexConsumer vc, boolean skin) {
+	/**
+	 * Three faces of each chunk show skin, the other three the meat it was torn from. {@code skinOf}: draw the skin faces of
+	 * the chunks with this look, or (null) the meat faces of all of them.
+	 */
+	private static void draw(ClientLevel level, List<Chunk> chunks, float pt, PoseStack.Pose pose, VertexConsumer vc, Identifier skinOf) {
+		boolean skin = skinOf != null;
 		if (level == null) {
 			return;
 		}
@@ -235,6 +277,9 @@ public final class GoreChunks {
 		Quaternionf q = new Quaternionf();
 		Vector3f p = new Vector3f(), n = new Vector3f();
 		for (Chunk c : chunks) {
+			if (skin && !skinOf.equals(c.skin)) {
+				continue;
+			}
 			float shrink = Math.min(1.0F, (c.life - c.age - pt) / 30.0F);
 			if (shrink <= 0) {
 				continue;

@@ -44,12 +44,18 @@ public final class Corpses {
 	private static final Random RANDOM = new Random();
 
 	// The skeleton's points
-	public static final int HIPS = 0, NECK = 1, SHOULDER = 2, HEAD = 3, R_HAND = 4, L_HAND = 5, R_FOOT = 6, L_FOOT = 7, POINTS = 8;
+	public static final int HIPS = 0, NECK = 1, SHOULDER = 2, HEAD = 3, R_HAND = 4, L_HAND = 5, R_FOOT = 6, L_FOOT = 7,
+		R_ELBOW = 8, L_ELBOW = 9, R_KNEE = 10, L_KNEE = 11, POINTS = 12;
 	/** How big each point is for colliding with blocks (the torso and head are thicker than the limbs). */
-	private static final double[] RADIUS = {0.14, 0.14, 0.13, 0.2, 0.1, 0.1, 0.1, 0.1};
+	private static final double[] RADIUS = {0.14, 0.14, 0.13, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1};
 	// Body measurements in blocks (Minecraft's humanoid model: 1 pixel = 1/16)
 	private static final double SPINE = 0.75, HALF_SHOULDERS = 0.3125, HEAD_OFFSET = 0.25, ARM = 0.625, LEG = 0.75, HIP_SIDE = 0.119,
 		SHOULDER_DROP = 0.125;
+	// The zombie model's joints (mz_zombie.bbmodel, in blocks): shoulder to elbow, elbow to fingertips, hip to knee, knee to
+	// sole. Each pair adds up to ARM / LEG.
+	public static final double UPPER_ARM = 0.25, FOREARM = 0.375, THIGH = 0.375, SHIN = 0.375;
+	/** The tightest a knee or an elbow folds: hip to sole (or shoulder to fingertips) never closer than this. */
+	private static final double FOLDED = 0.22;
 	private static final double GRAVITY = 0.032, DRAG = 0.985;
 	/** For this many ticks after death the body is still partly held up, fading out: it slumps and buckles, not drops. */
 	private static final int SLUMP_TICKS = 16;
@@ -66,12 +72,14 @@ public final class Corpses {
 	/** What the renderer needs for one frame of a corpse. */
 	public record Pose(float offX, float offY, float offZ, Matrix4f torso, boolean headless, boolean red, float headX, float headZ,
 		float rightArmX, float rightArmZ, float leftArmX, float leftArmZ, float rightLegX, float rightLegZ, float leftLegX,
-		float leftLegZ, boolean legless) {
+		float leftLegZ, boolean legless, double[][] points, int source) {
 	}
 
 	private static final class Body {
 		final int id;
 		final boolean headless;
+		/** The zombie it was (its look: ZombieModel.skin), or its own id. */
+		int source;
 		/** A crawler's body: its legs were blown off before it died (only the thigh stumps are drawn). */
 		boolean legless;
 		final double[][] pos = new double[POINTS][3];
@@ -132,6 +140,7 @@ public final class Corpses {
 
 		boolean headshot = hit.kind() == BloodPayload.HEADSHOT;
 		Body b = new Body(copy.getId(), headshot);
+		b.source = hit.entityId();
 		b.legless = com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.isCrawler(hit.entityId());
 		standUp(b, dead);
 		double yawRad = Math.toRadians(dead.yBodyRot);
@@ -216,6 +225,7 @@ public final class Corpses {
 		copy.setHealth(0.0F);
 		copy.noPhysics = true;
 		Body b = new Body(copy.getId(), false);
+		b.source = copy.getId();
 		standUp(b, copy);
 		double yawRad = Math.toRadians(yaw);
 		b.footX = x;
@@ -229,6 +239,7 @@ public final class Corpses {
 		double sy = y + 1.5 - SHOULDER_DROP - ARM * 0.95;
 		set(b.pos[R_HAND], x + b.rightX * (HALF_SHOULDERS + 0.05), sy, z + b.rightZ * (HALF_SHOULDERS + 0.05));
 		set(b.pos[L_HAND], x - b.rightX * (HALF_SHOULDERS + 0.05), sy, z - b.rightZ * (HALF_SHOULDERS + 0.05));
+		placeJoints(b.pos, b.fwdX, b.fwdZ);
 		for (int i = 0; i < POINTS; i++) {
 			double k = i == NECK || i == SHOULDER || i == HEAD ? 0.075 : i == HIPS ? 0.025 : i == R_HAND || i == L_HAND ? 0.05 : 0.0;
 			double vx = fallX * k + (RANDOM.nextDouble() - 0.5) * 0.01, vz = fallZ * k + (RANDOM.nextDouble() - 0.5) * 0.01;
@@ -347,6 +358,38 @@ public final class Corpses {
 		set(b.pos[L_HAND], x - rx * HALF_SHOULDERS + fx * ARM * 0.85, sy - 0.15, z - rz * HALF_SHOULDERS + fz * ARM * 0.85);
 		set(b.pos[R_FOOT], x + rx * HIP_SIDE, y + 0.02, z + rz * HIP_SIDE);
 		set(b.pos[L_FOOT], x - rx * HIP_SIDE, y + 0.02, z - rz * HIP_SIDE);
+		placeJoints(b.pos, fx, fz);
+	}
+
+	/**
+	 * Puts the elbows and knees where the arms and legs reach their hands and feet: elbows bent down and back, knees
+	 * forward ({@code fx, fz}: the body's front).
+	 */
+	private static void placeJoints(double[][] p, double fx, double fz) {
+		double[][] f = frame(p);
+		double[] up = f[0], right = f[1];
+		double[] front = {fx, 0, fz};
+		double[] elbowPole = {-fx - up[0] * 0.8, -up[1] * 0.8, -fz - up[2] * 0.8};
+		p[R_ELBOW] = bend(joint(p[NECK], right, up, HALF_SHOULDERS, -SHOULDER_DROP), p[R_HAND], UPPER_ARM, FOREARM,
+			add(elbowPole, right, 0.3));
+		p[L_ELBOW] = bend(joint(p[NECK], right, up, -HALF_SHOULDERS, -SHOULDER_DROP), p[L_HAND], UPPER_ARM, FOREARM,
+			add(elbowPole, right, -0.3));
+		p[R_KNEE] = bend(joint(p[HIPS], right, up, HIP_SIDE, 0), p[R_FOOT], THIGH, SHIN, front);
+		p[L_KNEE] = bend(joint(p[HIPS], right, up, -HIP_SIDE, 0), p[L_FOOT], THIGH, SHIN, front);
+	}
+
+	/** Two-bone reach: where the middle joint goes for a limb from {@code a} to {@code c}, bent towards {@code pole}. */
+	private static double[] bend(double[] a, double[] c, double l1, double l2, double[] pole) {
+		double[] ac = sub(c, a);
+		double d = Math.sqrt(dot(ac, ac));
+		double[] dir = norm(ac, new double[] {0, -1, 0});
+		d = Mth.clamp(d, Math.abs(l1 - l2) + 1.0E-3, l1 + l2 - 1.0E-3);
+		double along = (l1 * l1 - l2 * l2 + d * d) / (2 * d);
+		double h = Math.sqrt(Math.max(0, l1 * l1 - along * along));
+		double pd = dot(pole, dir);
+		double[] side = norm(new double[] {pole[0] - dir[0] * pd, pole[1] - dir[1] * pd, pole[2] - dir[2] * pd}, perpendicular(dir));
+		return new double[] {a[0] + dir[0] * along + side[0] * h, a[1] + dir[1] * along + side[1] * h,
+			a[2] + dir[2] * along + side[2] * h};
 	}
 
 	private static int nearest(Body b, double x, double y, double z) {
@@ -477,15 +520,29 @@ public final class Corpses {
 			// Head: on the neck, mostly upright with the torso (a stiff neck, a little give)
 			hang(level, b, HEAD, n, HEAD_OFFSET);
 			pull(level, b, HEAD, add(n, up, HEAD_OFFSET), 0.05);
-			// Arms swing freely from the shoulders
-			hang(level, b, R_HAND, joint(n, right, up, HALF_SHOULDERS, -SHOULDER_DROP), ARM);
-			hang(level, b, L_HAND, joint(n, right, up, -HALF_SHOULDERS, -SHOULDER_DROP), ARM);
-			// Legs hang from the hips, a little stiffer (they mostly follow the body)
+			double[] behind = f[2];
+			// Arms swing freely from the shoulders and bend at the elbows (only the way an elbow bends: back)
+			double[] shR = joint(n, right, up, HALF_SHOULDERS, -SHOULDER_DROP), shL = joint(n, right, up, -HALF_SHOULDERS, -SHOULDER_DROP);
+			limb(level, b, shR, R_ELBOW, R_HAND, UPPER_ARM, FOREARM, behind);
+			limb(level, b, shL, L_ELBOW, L_HAND, UPPER_ARM, FOREARM, behind);
+			// Legs swing freely from the hips and bend at the knees (forwards only)
 			double[] hipR = joint(h, right, up, HIP_SIDE, 0), hipL = joint(h, right, up, -HIP_SIDE, 0);
-			hang(level, b, R_FOOT, hipR, LEG);
-			hang(level, b, L_FOOT, hipL, LEG);
-			// (legs swing freely: no stiffness at the hips)
+			double[] front = {-behind[0], -behind[1], -behind[2]};
+			limb(level, b, hipR, R_KNEE, R_FOOT, THIGH, SHIN, front);
+			limb(level, b, hipL, L_KNEE, L_FOOT, THIGH, SHIN, front);
+			// Arms, legs, head and torso can't pass through each other
+			separate(level, b, up, shR, shL, hipR, hipL);
 		}
+		// Whatever the blocks did, no limb ends up pulled apart: a joint more than a little past its length goes back on
+		// (even into a block's edge: better a hand clipping a wall than an arm floating off the body)
+		double[][] f = frame(b.pos);
+		double[] up = f[0], right = f[1];
+		double[] n = b.pos[NECK], h = b.pos[HIPS];
+		rejoin(b, joint(n, right, up, HALF_SHOULDERS, -SHOULDER_DROP), R_ELBOW, R_HAND, UPPER_ARM, FOREARM);
+		rejoin(b, joint(n, right, up, -HALF_SHOULDERS, -SHOULDER_DROP), L_ELBOW, L_HAND, UPPER_ARM, FOREARM);
+		rejoin(b, joint(h, right, up, HIP_SIDE, 0), R_KNEE, R_FOOT, THIGH, SHIN);
+		rejoin(b, joint(h, right, up, -HIP_SIDE, 0), L_KNEE, L_FOOT, THIGH, SHIN);
+		rejoinPoint(b, HEAD, n, HEAD_OFFSET);
 
 		// Asleep once it has stopped moving for a while
 		if (moved < 0.003 && b.age > SLUMP_TICKS + 10 && (b.anim == null || b.age > b.animTicks)) {
@@ -508,6 +565,174 @@ public final class Corpses {
 		double diff = (d - length) / d;
 		nudge(level, a, p, dx * diff * share, dy * diff * share, dz * diff * share);
 		nudge(level, c, q, -dx * diff * (1 - share), -dy * diff * (1 - share), -dz * diff * (1 - share));
+	}
+
+	/**
+	 * An arm or a leg: the middle joint (elbow / knee) hangs from the root joint (shoulder / hip), the end (hand / foot)
+	 * from the middle; the middle only bends towards {@code bendSide} (an elbow bends back, a knee forward), and the limb
+	 * never folds tighter than FOLDED.
+	 */
+	private static void limb(ClientLevel level, Body b, double[] root, int mid, int end, double l1, double l2, double[] bendSide) {
+		hang(level, b, mid, root, l1);
+		link(level, b, mid, end, l2, 0.5);
+		double[] p = b.pos[mid], e = b.pos[end];
+		double[] re = sub(e, root);
+		double len = Math.sqrt(dot(re, re));
+		if (len < 1.0E-6) {
+			return;
+		}
+		if (len < FOLDED) {
+			double k = (FOLDED - len) / len;
+			nudge(level, end, e, re[0] * k, re[1] * k, re[2] * k);
+		}
+		// The joint's offset from the straight line root..end: never to the wrong side
+		double[] dir = {re[0] / len, re[1] / len, re[2] / len};
+		double[] rp = sub(p, root);
+		double t = dot(rp, dir);
+		double[] off = {rp[0] - dir[0] * t, rp[1] - dir[1] * t, rp[2] - dir[2] * t};
+		double wrong = dot(off, bendSide);
+		if (wrong < 0) {
+			nudge(level, mid, p, -bendSide[0] * wrong, -bendSide[1] * wrong, -bendSide[2] * wrong);
+		}
+	}
+
+	private static final double STRETCH = 1.12;
+
+	/** Puts a limb's middle and end back within reach of their joints when they've been pulled too far. */
+	private static void rejoin(Body b, double[] root, int mid, int end, double l1, double l2) {
+		rejoinPoint(b, mid, root, l1);
+		rejoinPoint(b, end, b.pos[mid], l2);
+	}
+
+	private static void rejoinPoint(Body b, int i, double[] from, double length) {
+		double[] p = b.pos[i];
+		double[] d = sub(p, from);
+		double l = Math.sqrt(dot(d, d));
+		if (l <= length * STRETCH || l < 1.0E-6) {
+			return;
+		}
+		double k = length / l;
+		double nx = from[0] + d[0] * k, ny = from[1] + d[1] * k, nz = from[2] + d[2] * k;
+		// Keep its speed (the old position moves with it)
+		b.old[i][0] += nx - p[0];
+		b.old[i][1] += ny - p[1];
+		b.old[i][2] += nz - p[2];
+		set(p, nx, ny, nz);
+	}
+
+	// ------------------------------------------------------------------ self-collision
+
+	/**
+	 * The body's parts as capsules (a segment with a thickness): the torso, the head, and each upper arm, forearm, thigh
+	 * and shin. {@code a} / {@code b}: the skeleton points at the ends (-1: a joint worked out from the torso, which this
+	 * doesn't move), {@code pa} / {@code pb} where the ends are, {@code w} how easily it is pushed (limbs are light, the
+	 * torso heavy).
+	 */
+	private record Capsule(int a, int b, double[] pa, double[] pb, double radius, double w) {
+	}
+
+	// Thicknesses (blocks): the model's parts are 4 pixels wide (0.125 half), the torso 8 x 4, the head 8.
+	private static final double LIMB_R = 0.11, TORSO_R = 0.17, HEAD_R = 0.2;
+	/** The torso capsule starts this far up from the hips, so the tops of the thighs (which are inside it) don't count. */
+	private static final double TORSO_START = 0.3;
+	private static final int TORSO = 0, HEAD_C = 1, R_UPPER = 2, R_FORE = 3, L_UPPER = 4, L_FORE = 5, R_THIGH = 6, R_SHIN = 7,
+		L_THIGH = 8, L_SHIN = 9, CAPSULES = 10;
+
+	/** Pushes apart any two parts of the body that overlap (but not the ones joined to each other). */
+	private static void separate(ClientLevel level, Body b, double[] up, double[] shR, double[] shL, double[] hipR, double[] hipL) {
+		double[][] p = b.pos;
+		Capsule[] c = new Capsule[CAPSULES];
+		c[TORSO] = new Capsule(HIPS, NECK, add(p[HIPS], up, TORSO_START), p[NECK], TORSO_R, 0.15);
+		c[HEAD_C] = new Capsule(HEAD, HEAD, p[HEAD], p[HEAD], HEAD_R, 0.4);
+		c[R_UPPER] = new Capsule(-1, R_ELBOW, shR, p[R_ELBOW], LIMB_R, 1);
+		c[R_FORE] = new Capsule(R_ELBOW, R_HAND, p[R_ELBOW], p[R_HAND], LIMB_R, 1);
+		c[L_UPPER] = new Capsule(-1, L_ELBOW, shL, p[L_ELBOW], LIMB_R, 1);
+		c[L_FORE] = new Capsule(L_ELBOW, L_HAND, p[L_ELBOW], p[L_HAND], LIMB_R, 1);
+		c[R_THIGH] = new Capsule(-1, R_KNEE, hipR, p[R_KNEE], LIMB_R, 0.7);
+		c[R_SHIN] = new Capsule(R_KNEE, R_FOOT, p[R_KNEE], p[R_FOOT], LIMB_R, 0.8);
+		c[L_THIGH] = new Capsule(-1, L_KNEE, hipL, p[L_KNEE], LIMB_R, 0.7);
+		c[L_SHIN] = new Capsule(L_KNEE, L_FOOT, p[L_KNEE], p[L_FOOT], LIMB_R, 0.8);
+		double[] st = new double[2];
+		for (int i = 0; i < CAPSULES; i++) {
+			for (int j = i + 1; j < CAPSULES; j++) {
+				if (joined(i, j) || (b.legless && (j == R_SHIN || j == L_SHIN || i == R_SHIN || i == L_SHIN))) {
+					continue;
+				}
+				Capsule x = c[i], y = c[j];
+				closest(x.pa(), x.pb(), y.pa(), y.pb(), st);
+				double[] px = lerp(x.pa(), x.pb(), st[0]), py = lerp(y.pa(), y.pb(), st[1]);
+				double[] d = sub(py, px);
+				double dist = Math.sqrt(dot(d, d));
+				double depth = x.radius() + y.radius() - dist;
+				if (depth <= 0) {
+					continue;
+				}
+				double[] n = dist > 1.0E-6 ? new double[] {d[0] / dist, d[1] / dist, d[2] / dist} : perpendicular(sub(x.pb(), x.pa()));
+				double wx = x.w() / (x.w() + y.w()), wy = y.w() / (x.w() + y.w());
+				push(level, b, x, st[0], n, -depth * wx);
+				push(level, b, y, st[1], n, depth * wy);
+			}
+		}
+	}
+
+	/** Parts joined at a joint (they always touch there): elbow, knee and neck. */
+	private static boolean joined(int i, int j) {
+		return (i == TORSO && j == HEAD_C) || (i == R_UPPER && j == R_FORE) || (i == L_UPPER && j == L_FORE)
+			|| (i == R_THIGH && j == R_SHIN) || (i == L_THIGH && j == L_SHIN);
+	}
+
+	/** Moves a capsule by {@code amount} along {@code n} at the spot {@code t} along it (its two ends sharing it). */
+	private static void push(ClientLevel level, Body b, Capsule c, double t, double[] n, double amount) {
+		double ka = c.a() == c.b() ? 1 : 1 - t, kb = c.a() == c.b() ? 0 : t;
+		// Only its free ends move; with one end fixed, the other end takes all of it (scaled, so the touching spot moves)
+		if (c.a() < 0) {
+			kb = t > 0.05 ? Math.min(1.5, 1 / t) : 0;
+			ka = 0;
+		}
+		if (c.a() >= 0 && ka > 0) {
+			nudge(level, c.a(), b.pos[c.a()], n[0] * amount * ka, n[1] * amount * ka, n[2] * amount * ka);
+		}
+		if (c.b() >= 0 && c.b() != c.a() && kb > 0) {
+			nudge(level, c.b(), b.pos[c.b()], n[0] * amount * kb, n[1] * amount * kb, n[2] * amount * kb);
+		}
+	}
+
+	private static double[] lerp(double[] a, double[] b, double t) {
+		return new double[] {a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t};
+	}
+
+	/** The closest points of segments p1-q1 and p2-q2: out[0], out[1] = how far along each (0..1). */
+	private static void closest(double[] p1, double[] q1, double[] p2, double[] q2, double[] out) {
+		double[] d1 = sub(q1, p1), d2 = sub(q2, p2), r = sub(p1, p2);
+		double a = dot(d1, d1), e = dot(d2, d2), f = dot(d2, r);
+		double s, t;
+		if (a < 1.0E-9 && e < 1.0E-9) {
+			out[0] = out[1] = 0;
+			return;
+		}
+		if (a < 1.0E-9) {
+			s = 0;
+			t = Mth.clamp(f / e, 0, 1);
+		} else {
+			double c = dot(d1, r);
+			if (e < 1.0E-9) {
+				t = 0;
+				s = Mth.clamp(-c / a, 0, 1);
+			} else {
+				double bb = dot(d1, d2), den = a * e - bb * bb;
+				s = den > 1.0E-9 ? Mth.clamp((bb * f - c * e) / den, 0, 1) : 0;
+				t = (bb * s + f) / e;
+				if (t < 0) {
+					t = 0;
+					s = Mth.clamp(-c / a, 0, 1);
+				} else if (t > 1) {
+					t = 1;
+					s = Mth.clamp((bb - c) / a, 0, 1);
+				}
+			}
+		}
+		out[0] = s;
+		out[1] = t;
 	}
 
 	/** Keeps a limb point at the bone length from its joint (only the limb moves: limbs are light). */
@@ -702,6 +927,11 @@ public final class Corpses {
 				out[R_FOOT] = new double[] {hipR[0], b.footY + 0.05, hipR[2]};
 				out[L_FOOT] = new double[] {hipL[0], b.footY + 0.05, hipL[2]};
 			}
+			double[] elbowPole = lin(fwd1, -1, up2, -0.8);
+			out[R_ELBOW] = bend(shR, out[R_HAND], UPPER_ARM, FOREARM, add(elbowPole, right2, 0.3));
+			out[L_ELBOW] = bend(shL, out[L_HAND], UPPER_ARM, FOREARM, add(elbowPole, right2, -0.3));
+			out[R_KNEE] = bend(hipR, out[R_FOOT], THIGH, SHIN, fwd1);
+			out[L_KNEE] = bend(hipL, out[L_FOOT], THIGH, SHIN, fwd1);
 			return out;
 		}
 
@@ -722,7 +952,7 @@ public final class Corpses {
 	// ------------------------------------------------------------------ skeleton maths
 
 	/** The torso's directions from its three points: {up (hips to neck), its right, behind it}. */
-	private static double[][] frame(double[][] pts) {
+	public static double[][] frame(double[][] pts) {
 		double[] up = norm(sub(pts[NECK], pts[HIPS]), new double[] {0, 1, 0});
 		double[] toLeft = sub(pts[SHOULDER], pts[NECK]);
 		double along = dot(toLeft, up);
@@ -733,7 +963,7 @@ public final class Corpses {
 		return new double[][] {up, right, behind};
 	}
 
-	private static double[] joint(double[] origin, double[] right, double[] up, double side, double upAmount) {
+	public static double[] joint(double[] origin, double[] right, double[] up, double side, double upAmount) {
 		return new double[] {origin[0] + right[0] * side + up[0] * upAmount, origin[1] + right[1] * side + up[1] * upAmount,
 			origin[2] + right[2] * side + up[2] * upAmount};
 	}
@@ -799,8 +1029,12 @@ public final class Corpses {
 		float[] la = aim(sub(pts[L_HAND], joint(n, right, up, -HALF_SHOULDERS, -SHOULDER_DROP)), right, up, behind, false);
 		float[] rl = aim(sub(pts[R_FOOT], joint(h, right, up, HIP_SIDE, 0)), right, up, behind, false);
 		float[] ll = aim(sub(pts[L_FOOT], joint(h, right, up, -HIP_SIDE, 0)), right, up, behind, false);
+		double[][] rel = new double[POINTS][];
+		for (int i = 0; i < POINTS; i++) {
+			rel[i] = sub(pts[i], h);
+		}
 		return new Pose((float) (n[0] - h[0]), (float) (n[1] - h[1]), (float) (n[2] - h[2]), torso, b.headless, b.age < 6,
-			head[0], head[1], ra[0], ra[1], la[0], la[1], rl[0], rl[1], ll[0], ll[1], b.legless);
+			head[0], head[1], ra[0], ra[1], la[0], la[1], rl[0], rl[1], ll[0], ll[1], b.legless, rel, b.source);
 	}
 
 	/**

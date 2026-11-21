@@ -24,7 +24,7 @@ public final class ZombieCrawlers {
 			var level = context.client().level;
 			var zombie = level == null ? null : level.getEntity(payload.entityId());
 			if (zombie != null) {
-				com.mzcod.tacticalmovement.client.wounds.GoreChunks.legsOff(zombie.position());
+				com.mzcod.tacticalmovement.client.wounds.GoreChunks.legsOff(payload.entityId(), zombie.position());
 			}
 		});
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
