@@ -15,7 +15,7 @@ Fabric mod for Minecraft 26.3. Install it with Fabric API.
 
 ## Fixes
 
-- The crosshair ignores BlockBlocker's invisible wall colliders.
+- The crosshair ignores [BlockBlocker](https://github.com/TTG24/BlockBlocker)'s invisible wall colliders.
 
 ## Default keys
 

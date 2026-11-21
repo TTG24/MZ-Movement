@@ -42,3 +42,8 @@ All rights reserved. The source is viewable only; copying, modifying and redistr
 ## Author
 
 [TTG24](https://github.com/TTG24)
+
+## Related projects
+
+- [MZ-Minecraft-Zombies](https://github.com/TTG24/MZ-Minecraft-Zombies): the MinecraftZombies server plugin (round-based zombie arenas).
+- [BlockBlocker](https://github.com/TTG24/BlockBlocker): server plugin for invisible barriers that block players and mobs.
