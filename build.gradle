@@ -31,6 +31,56 @@ dependencies {
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
+// guide.json for the server's /client/info.json (and through it the website's mod guide): the version, the default
+// keys (read from TacticalMovementClient's KeyMappings and their names from en_us.json) and the newest section of
+// RELEASE_NOTES.md. Made on every build, so the guide never needs editing by hand.
+def guideDir = layout.buildDirectory.dir("generated/guide")
+def generateGuide = tasks.register("generateGuide") {
+	def clientSrc = file("src/client/java/com/mzcod/tacticalmovement/client/TacticalMovementClient.java")
+	def lang = file("src/main/resources/assets/tacticalmovement/lang/en_us.json")
+	def notes = file("RELEASE_NOTES.md")
+	def version = project.version
+	inputs.files(clientSrc, lang)
+	inputs.property "version", version
+	if (notes.exists()) inputs.file(notes)
+	outputs.dir(guideDir)
+	doLast {
+		def names = new groovy.json.JsonSlurper().parse(lang)
+		def keys = []
+		(clientSrc.text =~ /"(key\.tacticalmovement\.\w+)",\s*InputConstants\.Type\.KEYBOARD,\s*InputConstants\.KEY_(\w+)/).each { m ->
+			String action = names[m[1]] ?: m[1]
+			if (action.contains("(operators)")) return
+			String code = m[2]
+			Map special = [GRAVE: "`", SPACE: "Space", TAB: "Tab", LSHIFT: "Left Shift", LCONTROL: "Left Ctrl", LALT: "Left Alt",
+				LEFT_SHIFT: "Left Shift", LEFT_CONTROL: "Left Ctrl", LEFT_ALT: "Left Alt", CAPSLOCK: "Caps Lock"]
+			String key = special[code] ?: code.split("_").collect { it.length() == 1 ? it : it.toLowerCase().capitalize() }.join(" ")
+			keys << [key: key, action: action]
+		}
+		if (keys.isEmpty()) throw new GradleException("generateGuide: no key mappings found in " + clientSrc)
+		String top = ""
+		if (notes.exists()) {
+			def out = []
+			boolean inside = false
+			for (String line : notes.readLines("UTF-8")) {
+				if (line.startsWith("# ")) {
+					if (inside) break
+					inside = true
+				}
+				if (inside) out << line
+			}
+			top = out.join("\n").trim()
+		}
+		def f = guideDir.get().file("assets/tacticalmovement/guide.json").asFile
+		f.parentFile.mkdirs()
+		f.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
+			displayName: "MZ-Movement",
+			version    : version.toString(),
+			keys       : keys,
+			notes      : top
+		])), "UTF-8")
+	}
+}
+
 processResources {
 	def version = project.version
 	inputs.property "version", version
@@ -38,6 +88,7 @@ processResources {
 	filesMatching("fabric.mod.json") {
 		expand "version": version
 	}
+	from(generateGuide)
 }
 
 tasks.withType(JavaCompile).configureEach {
