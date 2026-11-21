@@ -11,6 +11,11 @@ repositories {
 	// for more information about repositories.
 }
 
+// The jar is mz-movement-<version>.jar (the mod id stays "tacticalmovement", so settings and the server link keep working)
+base {
+	archivesName = "mz-movement"
+}
+
 loom {
 	splitEnvironmentSourceSets()
 
@@ -75,6 +80,8 @@ def generateGuide = tasks.register("generateGuide") {
 		f.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson([
 			displayName: "MZ-Movement",
 			version    : version.toString(),
+			// Where the keys are listed in Options > Controls > Key Binds
+			keyCategory: names["key.category.tacticalmovement.movement"] ?: "MZ-Movement",
 			keys       : keys,
 			notes      : top
 		])), "UTF-8")

@@ -2,8 +2,8 @@
 	"schemaVersion": 1,
 	"id": "tacticalmovement",
 	"version": "${version}",
-	"name": "Tactical Movement",
-	"description": "Call of Duty-inspired prone movement, dolphin dives, and tactical sword animations.",
+	"name": "MZ-Movement",
+	"description": "The client mod for The Blocky Zombies (MinecraftZombies): tactical movement, animated zombies, crawlers, gore and death cutscenes.",
 	"authors": [
 		"MZ Cod Mod"
 	],

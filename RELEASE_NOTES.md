@@ -1,3 +1,19 @@
+# MZ-Movement 1.2.0
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API.
+
+## New
+
+- **Renamed to MZ-Movement** (it was "Tactical Movement"): the mod list, the key binds category
+  (Options > Controls > Key Binds > MZ-Movement) and the jar, now `mz-movement-<version>.jar`.
+- **New icon** in the server's theme: glowing eyes in the purple static.
+
+## Updating by hand
+
+Delete the old `tactical-movement-*.jar` from your `mods` folder before adding the new jar: two copies of the
+mod stop the game from starting. The Prism instance and the Windows installer from theblockyzombies.net
+remove it for you, and a freshly imported modpack or CurseForge profile starts clean.
+
 # MZ-Movement 1.1.0
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API.

@@ -22,7 +22,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          JAR=$(ls build/libs/tactical-movement-*[0-9].jar)
+          JAR=$(ls build/libs/mz-movement-*[0-9].jar)
           # Notes: the top (newest) section of RELEASE_NOTES.md, or a short default.
           if [ -f RELEASE_NOTES.md ]; then
             awk 'f && /^# /{exit} /^# /{f=1} f' RELEASE_NOTES.md > NOTES.md

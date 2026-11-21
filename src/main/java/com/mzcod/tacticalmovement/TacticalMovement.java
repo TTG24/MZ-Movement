@@ -49,7 +49,7 @@ public final class TacticalMovement implements ModInitializer {
 			ServerMovementController.synchronizeWith(handler.player));
 		ServerTickEvents.END_SERVER_TICK.register(ServerMovementController::tick);
 
-		LOGGER.info("Tactical Movement initialized");
+		LOGGER.info("MZ-Movement initialized");
 	}
 
 	public static Identifier id(String path) {
