@@ -49,14 +49,18 @@ public final class ZombieFx {
 
 	/** What the weather where the zombie stands would put on it: SNOW, WET, DUST, or -1 for nothing. */
 	static int wanted(ClientLevel level, Zombie z) {
-		if (level.dimension() != Level.OVERWORLD) {
+		// Not in the Nether or the End (or anywhere without a sky). Not "only the overworld": the arenas are worlds of their
+		// own (mz_instance_...), which is why nothing ever showed
+		if (level.dimension() == Level.NETHER || level.dimension() == Level.END || !level.dimensionType().hasSkyLight()) {
 			return -1;
 		}
 		BlockPos pos = z.blockPosition();
 		if (z.isInWater()) {
 			return WET;
 		}
-		if (!level.canSeeSky(pos)) {
+		// Out in the open: full daylight from the sky (an arena roofed with invisible barrier blocks, which the snow
+		// falls through for the players, still counts; canSeeSky said no under those)
+		if (level.getBrightness(net.minecraft.world.level.LightLayer.SKY, pos) < 15) {
 			return -1;
 		}
 		var biome = level.getBiome(pos);

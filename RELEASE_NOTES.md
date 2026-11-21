@@ -1,3 +1,12 @@
+# MZ-Movement 1.2.3
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API.
+
+## Fixed
+
+- Weather on zombies now shows in the arenas (it only worked in the overworld itself, and the arenas are worlds of
+  their own), and under barrier-block roofs.
+
 # MZ-Movement 1.2.2
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API.
