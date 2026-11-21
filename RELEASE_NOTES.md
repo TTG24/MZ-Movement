@@ -1,3 +1,26 @@
+# MZ-Movement 1.3.0
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.6.
+
+## Guns
+
+- **Held in both hands**, in first and third person, with animations for each kind of gun. Pistols are one-handed.
+- **Kick** on every shot, and firing while sprinting brings the gun back up.
+- **Reloads move the gun itself:** magazines come out and go back in, double-barrels break open, bolts and pumps are
+  worked, revolver cylinders swing out.
+- **Aim down the sights** with sneak or right click, standing, crouched or prone.
+- **Inspect** your gun with I. A new gun from the wall or the box is looked over when you pick it up.
+- **Bullet tracers**, and reload and handling sounds in time with the animations.
+- **Full auto:** hold the attack button to keep firing automatic guns.
+
+## Perks
+
+- Drinking a perk plays out in full: the bottle comes up, is opened, drunk and thrown away.
+
+## Fixed
+
+- Zombies killed in a window no longer freeze at the start of their death.
+
 # MZ-Movement 1.2.3
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API.
