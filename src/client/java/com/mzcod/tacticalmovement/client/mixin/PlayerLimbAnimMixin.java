@@ -104,6 +104,14 @@ public abstract class PlayerLimbAnimMixin {
 				bendL = Math.max(Mth.lerp(sprint, bendL, ready) * (1.0F - slash), ready);
 			}
 		}
+		// Holding a gun up in both hands (GunAnim): the elbows stay as the gun pose has them, not swinging with the stride
+		if (com.mzcod.tacticalmovement.client.animation.GunAnim.posed(state)) {
+			foreR.xRot = -0.12F;
+			foreR.yRot = foreR.zRot = 0.0F;
+			foreL.xRot = -0.25F;
+			foreL.yRot = foreL.zRot = 0.0F;
+			return;
+		}
 		foreR.xRot -= upright * bendR;
 		foreL.xRot -= upright * bendL;
 	}

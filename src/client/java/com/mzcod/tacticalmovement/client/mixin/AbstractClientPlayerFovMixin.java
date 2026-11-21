@@ -18,6 +18,15 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 // unslowed / current = (2*ratio + 1) / (ratio + 1).
 @Mixin(AbstractClientPlayer.class)
 public abstract class AbstractClientPlayerFovMixin {
+	// Aiming a gun down its sights (sneaking, GunFirstPerson) zooms in a little
+	@Inject(method = "getFieldOfViewModifier", at = @At("RETURN"), cancellable = true)
+	private void tacticalMovement$gunZoom(boolean firstPerson, float effectScale, CallbackInfoReturnable<Float> cir) {
+		float aim = com.mzcod.tacticalmovement.client.animation.GunFirstPerson.aim();
+		if (aim > 0 && firstPerson) {
+			cir.setReturnValue(cir.getReturnValue() * (1 - 0.2F * aim));
+		}
+	}
+
 	@Inject(method = "getFieldOfViewModifier", at = @At("RETURN"), cancellable = true)
 	private void tacticalMovement$keepFovWhileCrouched(boolean firstPerson, float effectScale, CallbackInfoReturnable<Float> cir) {
 		AbstractClientPlayer self = (AbstractClientPlayer) (Object) this;

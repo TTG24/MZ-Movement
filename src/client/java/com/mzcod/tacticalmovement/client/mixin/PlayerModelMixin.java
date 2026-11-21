@@ -175,6 +175,13 @@ public abstract class PlayerModelMixin {
 	@Inject(method = "setupAnim", at = @At("TAIL"))
 	private void tacticalMovement$customPose(AvatarRenderState state, CallbackInfo ci) {
 		com.mzcod.tacticalmovement.client.animation.CustomPoses.applyModel(state.id, (PlayerModel) (Object) this);
+		// Holding a MinecraftZombies gun: both arms on it, animated (GunAnim)
+		if (com.mzcod.tacticalmovement.client.animation.GunAnim.posed(state)) {
+			com.mzcod.tacticalmovement.client.animation.GunAnim.applyModel(state, (PlayerModel) (Object) this,
+				((com.mzcod.tacticalmovement.client.animation.TacticalRenderStateAccess) state).tacticalMovement$getSprintBlend());
+		}
+		// Drinking a perk: the bottle's arm up to the mouth (over the gun's pose: that arm has let go of the gun)
+		com.mzcod.tacticalmovement.client.animation.GunAnim.applyDrink(state, (PlayerModel) (Object) this);
 	}
 
 	// Last stand, layered on the prone pose: the gun arm is raised off the ground and aimed ahead, the support arm stays

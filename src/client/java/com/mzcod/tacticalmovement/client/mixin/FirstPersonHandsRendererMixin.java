@@ -37,6 +37,39 @@ public abstract class FirstPersonHandsRendererMixin {
 		PlayerRenderState playerState
 	);
 
+	// The MinecraftZombies guns: held in both hands and animated (GunFirstPerson / GunAnim)
+	@Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
+	private void tacticalMovement$gun(
+		PlayerRenderState playerState,
+		FirstPersonHandsAndItemsRenderState state,
+		float partialTicks,
+		float xRot,
+		InteractionHand hand,
+		float attack,
+		ItemStack itemStack,
+		float inverseArmHeight,
+		PoseStack poseStack,
+		SubmitNodeCollector submitNodeCollector,
+		int lightCoords,
+		CallbackInfo ci
+	) {
+		// drinking a perk: the bottle in the gun hand, nothing in the other (the bottle sits in the off hand)
+		if (net.minecraft.client.Minecraft.getInstance().player != null
+			&& com.mzcod.tacticalmovement.client.animation.GunAnim.drink(net.minecraft.client.Minecraft.getInstance().player.getId()) >= 0) {
+			if (hand == InteractionHand.MAIN_HAND) {
+				com.mzcod.tacticalmovement.client.animation.GunFirstPerson.renderDrink(playerState, itemStack, poseStack, submitNodeCollector,
+					lightCoords, (ps, arm) -> this.renderPlayerArm(ps, submitNodeCollector, lightCoords, inverseArmHeight, 0.0F, arm, playerState));
+			}
+			ci.cancel();
+			return;
+		}
+		if (hand == InteractionHand.MAIN_HAND && !state.isScoping
+			&& com.mzcod.tacticalmovement.client.animation.GunFirstPerson.render(playerState, itemStack, poseStack, submitNodeCollector,
+				lightCoords, (ps, arm) -> this.renderPlayerArm(ps, submitNodeCollector, lightCoords, inverseArmHeight, 0.0F, arm, playerState))) {
+			ci.cancel();
+		}
+	}
+
 	@Inject(method = "submitArmWithItem", at = @At("HEAD"), cancellable = true)
 	private void tacticalMovement$tacticalSword(
 		PlayerRenderState playerState,

@@ -36,6 +36,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 	private static KeyMapping reloadKey;
 	private static KeyMapping grenadeKey;
 	private static KeyMapping inspectKey;
+	private static KeyMapping inspectGunKey;
 	private static KeyMapping noclipKey;
 	private static boolean crouchWasDown;
 	private static boolean stanceWasDown;
@@ -83,6 +84,9 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		// Inspect the sword (first person only, nothing is sent to the server).
 		inspectKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
 			"key.tacticalmovement.inspect", InputConstants.Type.KEYBOARD, InputConstants.KEY_V, CATEGORY));
+		// Inspect the held gun (I): looked over in first person, with its handling sounds
+		inspectGunKey = KeyMappingHelper.registerKeyMapping(new KeyMapping(
+			"key.tacticalmovement.inspect_gun", InputConstants.Type.KEYBOARD, InputConstants.KEY_I, CATEGORY));
 
 		ClientPlayNetworking.registerGlobalReceiver(MovementStatePayload.TYPE, (payload, context) -> {
 			if (context.client().level == null) {
@@ -112,6 +116,10 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.register();
 		com.mzcod.tacticalmovement.client.zombie.ZombieModel.register();
 		com.mzcod.tacticalmovement.client.zombie.ZombieFx.register();
+		com.mzcod.tacticalmovement.client.animation.GunAnim.register();
+		com.mzcod.tacticalmovement.client.animation.GunFirstPerson.registerDebug();
+		com.mzcod.tacticalmovement.client.animation.GunTracers.register();
+		com.mzcod.tacticalmovement.client.animation.GunSounds.register();
 		com.mzcod.tacticalmovement.client.wounds.GoreChunks.register();
 		com.mzcod.tacticalmovement.client.wounds.WoundFx.register();
 		com.mzcod.tacticalmovement.client.wounds.Corpses.register();
@@ -228,6 +236,16 @@ public final class TacticalMovementClient implements ClientModInitializer {
 			com.mzcod.tacticalmovement.movement.SprintLock.locked = false;
 		}
 
+		while (inspectGunKey.consumeClick()) {
+			if (client.player != null && com.mzcod.tacticalmovement.client.animation.GunAnim.style(client.player.getMainHandItem()) != null) {
+				int me = client.player.getId();
+				boolean was = com.mzcod.tacticalmovement.client.animation.GunAnim.look(me) >= 0;
+				com.mzcod.tacticalmovement.client.animation.GunAnim.inspect(me);
+				if (!was && com.mzcod.tacticalmovement.client.animation.GunAnim.look(me) >= 0) {
+					com.mzcod.tacticalmovement.client.animation.GunSounds.inspect(me);
+				}
+			}
+		}
 		while (inspectKey.consumeClick()) {
 			com.mzcod.tacticalmovement.client.animation.SwordInspect.begin();
 		}

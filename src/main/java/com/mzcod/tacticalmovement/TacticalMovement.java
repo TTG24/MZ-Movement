@@ -42,6 +42,12 @@ public final class TacticalMovement implements ModInitializer {
 			com.mzcod.tacticalmovement.network.RisePayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.CrawlerPayload.TYPE,
 			com.mzcod.tacticalmovement.network.CrawlerPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.GunAnimPayload.TYPE,
+			com.mzcod.tacticalmovement.network.GunAnimPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.TracerPayload.TYPE,
+			com.mzcod.tacticalmovement.network.TracerPayload.STREAM_CODEC);
+		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.TriggerPayload.TYPE,
+			com.mzcod.tacticalmovement.network.TriggerPayload.STREAM_CODEC);
 
 		ServerPlayNetworking.registerGlobalReceiver(MovementRequestPayload.TYPE,
 			(payload, context) -> ServerMovementController.handleRequest(context.player(), payload.action()));

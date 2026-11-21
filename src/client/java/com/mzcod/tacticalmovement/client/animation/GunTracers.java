@@ -1,0 +1,174 @@
+package com.mzcod.tacticalmovement.client.animation;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import com.mzcod.tacticalmovement.network.TracerPayload;
+import com.mzcod.tacticalmovement.network.TriggerPayload;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
+import net.minecraft.client.CameraType;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.level.ClipContext;
+import net.minecraft.world.phys.HitResult;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
+
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Bullet tracers: each shot (TracerPayload, from the MinecraftZombies plugin) is drawn as a bright streak flying from the
+ * gun's muzzle to where the bullet stopped (a wall, or the end of its range), with a faint glowing line along the path for
+ * an instant. Also sends the trigger (attack key) state, so automatic guns keep firing while it is held.
+ */
+public final class GunTracers {
+	/** How fast a tracer flies (blocks a second), how long its streak is (blocks), how long the faint line lasts (s). */
+	private static final double SPEED = 220, STREAK = 3.5, GLOW = 0.07;
+
+	private record Tracer(Vec3 from, Vec3 to, float r, float g, float b, long born) {
+	}
+
+	private static final List<Tracer> TRACERS = new ArrayList<>();
+	private static boolean triggerDown;
+	private static int triggerTicks;
+
+	private GunTracers() {
+	}
+
+	public static void register() {
+		ClientPlayNetworking.registerGlobalReceiver(TracerPayload.TYPE, (payload, context) -> add(context.client(), payload));
+		ClientTickEvents.END_CLIENT_TICK.register(GunTracers::tickTrigger);
+		LevelRenderEvents.COLLECT_SUBMITS.register(ctx -> {
+			if (TRACERS.isEmpty()) {
+				return;
+			}
+			long now = System.nanoTime();
+			TRACERS.removeIf(t -> (now - t.born) / 1.0E9 > t.from.distanceTo(t.to) / SPEED + GLOW + 0.05);
+			if (TRACERS.isEmpty()) {
+				return;
+			}
+			Minecraft mc = Minecraft.getInstance();
+			Vec3 cam = mc.gameRenderer.mainCamera().position();
+			PoseStack ps = ctx.poseStack();
+			List<Tracer> snapshot = new ArrayList<>(TRACERS);
+			ctx.submitNodeCollector().submitCustomGeometry(ps, RenderTypes.lightning(), (pose, vc) -> {
+				for (Tracer t : snapshot) {
+					draw(t, now, cam, pose, vc);
+				}
+			});
+		});
+	}
+
+	private static void add(Minecraft mc, TracerPayload p) {
+		if (mc.level == null) {
+			return;
+		}
+		Vec3 from = new Vec3(p.fx(), p.fy(), p.fz());
+		Vec3 to = new Vec3(p.tx(), p.ty(), p.tz());
+		Entity shooter = mc.level.getEntity(p.shooter());
+		// Stops at the first wall
+		HitResult wall = mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE,
+			shooter != null ? shooter : mc.player));
+		if (wall.getType() != HitResult.Type.MISS) {
+			to = wall.getLocation();
+		}
+		// Seen coming out of the gun's muzzle: in first person just below and right of the view (the middle when aiming),
+		// otherwise out in front of the shooter's chest at the right
+		Vec3 look = to.subtract(from);
+		if (look.lengthSqr() < 1.0E-6) {
+			return;
+		}
+		look = look.normalize();
+		Vec3 right = look.cross(new Vec3(0, 1, 0));
+		right = right.lengthSqr() < 1.0E-6 ? new Vec3(1, 0, 0) : right.normalize();
+		Vec3 up = right.cross(look).normalize();
+		boolean mine = shooter == mc.player && mc.options.getCameraType() == CameraType.FIRST_PERSON;
+		int side = shooter instanceof net.minecraft.world.entity.LivingEntity le && le.getMainArm() == net.minecraft.world.entity.HumanoidArm.LEFT
+			? -1 : 1;
+		Vec3 muzzle;
+		if (mine) {
+			float aim = GunFirstPerson.aim();
+			muzzle = from.add(look.scale(1.0)).add(right.scale(side * 0.22 * (1 - aim))).add(up.scale(-0.16 * (1 - aim) - 0.05 * aim));
+		} else {
+			muzzle = from.add(look.scale(0.9)).add(right.scale(side * 0.3)).add(up.scale(-0.2));
+		}
+		if (muzzle.distanceTo(to) < 0.5) {
+			return;
+		}
+		// Brighter than the gun's particle colour, towards white-hot
+		int c = p.color();
+		float r = ((c >> 16) & 255) / 255F, g = ((c >> 8) & 255) / 255F, b = (c & 255) / 255F;
+		if (r + g + b < 1.2F) {
+			// a grey or dark colour: an ordinary bullet's warm yellow
+			r = 1.0F;
+			g = 0.82F;
+			b = 0.45F;
+		}
+		if (TRACERS.size() > 200) {
+			TRACERS.remove(0);
+		}
+		TRACERS.add(new Tracer(muzzle, to, r, g, b, System.nanoTime()));
+	}
+
+	private static void draw(Tracer t, long now, Vec3 cam, PoseStack.Pose pose, VertexConsumer vc) {
+		double age = (now - t.born) / 1.0E9;
+		double len = t.from.distanceTo(t.to);
+		Vec3 dir = t.to.subtract(t.from).normalize();
+		// The streak: its head flying along, its tail STREAK behind
+		double head = Math.min(len, age * SPEED), tail = Math.max(0, head - STREAK);
+		if (tail < len) {
+			Vec3 a = t.from.add(dir.scale(tail)), b = t.from.add(dir.scale(head));
+			ribbon(vc, pose, cam, a, b, 0.045F, t.r, t.g, t.b, 0.55F);
+			ribbon(vc, pose, cam, a, b, 0.015F, 1.0F, 0.97F, 0.9F, 0.95F);
+		}
+		// The faint line along the whole path, for an instant
+		if (age < GLOW) {
+			float fade = (float) (1 - age / GLOW);
+			ribbon(vc, pose, cam, t.from, t.to, 0.02F, t.r, t.g, t.b, 0.25F * fade);
+		}
+	}
+
+	/** A flat strip from a to b, turned to face the camera (drawn both ways round). */
+	private static void ribbon(VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vec3 a, Vec3 b, float width, float r, float g, float bl, float alpha) {
+		Vector3f pa = new Vector3f((float) (a.x - cam.x), (float) (a.y - cam.y), (float) (a.z - cam.z));
+		Vector3f pb = new Vector3f((float) (b.x - cam.x), (float) (b.y - cam.y), (float) (b.z - cam.z));
+		Vector3f along = new Vector3f(pb).sub(pa);
+		Vector3f mid = new Vector3f(pa).add(pb).mul(0.5F);
+		Vector3f side = along.cross(mid, new Vector3f());
+		if (side.lengthSquared() < 1.0E-10F) {
+			return;
+		}
+		side.normalize().mul(width);
+		quad(vc, pose, pa, pb, side, r, g, bl, alpha);
+	}
+
+	private static void quad(VertexConsumer vc, PoseStack.Pose pose, Vector3f a, Vector3f b, Vector3f s, float r, float g, float bl, float alpha) {
+		Vector3f a1 = new Vector3f(a).add(s), a2 = new Vector3f(a).sub(s), b1 = new Vector3f(b).add(s), b2 = new Vector3f(b).sub(s);
+		Vector3f[] order = {a1, a2, b2, b1, b1, b2, a2, a1};
+		for (Vector3f v : order) {
+			vc.addVertex(pose, v.x, v.y, v.z).setColor(r, g, bl, alpha);
+		}
+	}
+
+	// ---- the trigger, for automatic guns
+	private static void tickTrigger(Minecraft mc) {
+		boolean down = mc.player != null && mc.gui.screen() == null && mc.options.keyAttack.isDown()
+			&& com.mzcod.tacticalmovement.client.GunItems.isGun(mc.player.getMainHandItem());
+		if (mc.player == null) {
+			triggerDown = false;
+			return;
+		}
+		if (down != triggerDown || (down && ++triggerTicks >= 5)) {
+			triggerTicks = 0;
+			triggerDown = down;
+			// (not gated on canSend: a Paper server doesn't always advertise its plugin channels to Fabric clients)
+			try {
+				ClientPlayNetworking.send(new TriggerPayload(down));
+			} catch (RuntimeException ignored) {
+			}
+		}
+	}
+}

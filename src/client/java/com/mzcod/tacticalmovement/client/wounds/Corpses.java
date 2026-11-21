@@ -793,7 +793,35 @@ public final class Corpses {
 		if (level == null) {
 			return y - r >= 0.0; // no world (the physics test, CorpsePhysicsCheck): flat ground at y = 0
 		}
-		return level.noCollision(new AABB(x - r, y - r, z - r, x + r, y + r, z + r));
+		// Real blocks only. Not barrier blocks, and not entities: BlockBlocker's invisible walls (fake barrier blocks and
+		// invisible shulkers sent to the client) fill the windows the zombies come through, so a zombie killed in a window
+		// started its fall inside them and stuck there, frozen at the start of its death animation.
+		AABB box = new AABB(x - r, y - r, z - r, x + r, y + r, z + r);
+		int x0 = net.minecraft.util.Mth.floor(box.minX), x1 = net.minecraft.util.Mth.floor(box.maxX);
+		int y0 = net.minecraft.util.Mth.floor(box.minY), y1 = net.minecraft.util.Mth.floor(box.maxY);
+		int z0 = net.minecraft.util.Mth.floor(box.minZ), z1 = net.minecraft.util.Mth.floor(box.maxZ);
+		net.minecraft.core.BlockPos.MutableBlockPos pos = new net.minecraft.core.BlockPos.MutableBlockPos();
+		for (int bx = x0; bx <= x1; bx++) {
+			for (int by = y0; by <= y1; by++) {
+				for (int bz = z0; bz <= z1; bz++) {
+					pos.set(bx, by, bz);
+					var state = level.getBlockState(pos);
+					if (state.isAir() || state.is(net.minecraft.world.level.block.Blocks.BARRIER)) {
+						continue;
+					}
+					var shape = state.getCollisionShape(level, pos);
+					if (shape.isEmpty()) {
+						continue;
+					}
+					for (AABB part : shape.toAabbs()) {
+						if (part.move(bx, by, bz).intersects(box)) {
+							return false;
+						}
+					}
+				}
+			}
+		}
+		return true;
 	}
 
 	/**

@@ -19,6 +19,41 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ItemInHandLayer.class)
 public abstract class ItemInHandLayerMixin {
+	/** The model's space when the arm's item started (for turning a gun along the player's look). */
+	@org.spongepowered.asm.mixin.Unique
+	private static final org.joml.Matrix4f tacticalMovement$model = new org.joml.Matrix4f();
+
+	@Inject(method = "submitArmWithItem", at = @At("HEAD"))
+	private void tacticalMovement$rememberModel(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack itemStack,
+		HumanoidArm arm, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, CallbackInfo ci) {
+		tacticalMovement$model.set(poseStack.last().pose());
+	}
+
+	// A MinecraftZombies gun: pointed along the player's look (or across the body when sprinting), with its animations
+	// (GunAnim); the arms are posed for it in PlayerModelMixin
+	@Inject(
+		method = "submitArmWithItem",
+		at = @At(
+			value = "INVOKE",
+			target = "Lnet/minecraft/client/renderer/item/ItemStackRenderState;submit(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;III)V"
+		)
+	)
+	private void tacticalMovement$aimGun(ArmedEntityRenderState state, ItemStackRenderState item, ItemStack itemStack,
+		HumanoidArm arm, PoseStack poseStack, SubmitNodeCollector submitNodeCollector, int lightCoords, CallbackInfo ci) {
+		if (!(state instanceof net.minecraft.client.renderer.entity.state.AvatarRenderState avatar) || arm != state.mainArm) {
+			return;
+		}
+		com.mzcod.tacticalmovement.client.animation.GunAnim.Style style = com.mzcod.tacticalmovement.client.animation.GunAnim.style(itemStack);
+		if (style == null || !com.mzcod.tacticalmovement.client.animation.GunAnim.posed(avatar)) {
+			return;
+		}
+		float sprint = ((com.mzcod.tacticalmovement.client.animation.TacticalRenderStateAccess) avatar).tacticalMovement$getSprintBlend();
+		org.joml.Vector3f forward = new org.joml.Vector3f(), up = new org.joml.Vector3f();
+		com.mzcod.tacticalmovement.client.animation.GunAnim.thirdPersonAim(avatar, style, sprint, forward, up);
+		tacticalMovement$model.transformDirection(forward);
+		tacticalMovement$model.transformDirection(up);
+		com.mzcod.tacticalmovement.client.animation.GunAnim.align(poseStack, forward, up);
+	}
 	// Flips the blade edge of swords held by players so the sword appears gripped
 	// backwards (reverse grip): rotate the item render 180 degrees about the blade
 	// axis (item-local-Y, which maps to +Z after the layer's base XP -90 / YP 180

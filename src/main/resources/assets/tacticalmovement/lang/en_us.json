@@ -5,5 +5,6 @@
   "key.tacticalmovement.reload": "Reload",
   "key.tacticalmovement.grenade": "Throw Grenade",
   "key.tacticalmovement.noclip": "Noclip (operators)",
-  "key.tacticalmovement.inspect": "Inspect Sword"
+  "key.tacticalmovement.inspect": "Inspect Sword",
+  "key.tacticalmovement.inspect_gun": "Inspect Gun"
 }
