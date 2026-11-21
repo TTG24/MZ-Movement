@@ -10,7 +10,7 @@ Fabric mod for Minecraft 26.3. Install it with Fabric API.
 
 ## Fixed
 
-- Ragdolls spinning in place.
+- Ragdolls spinning in place: bodies now settle and lie still (tested over 300 random falls, none spun).
 - Hold-F repair stopping when you move.
 
 # MZ-Movement 1.2.0

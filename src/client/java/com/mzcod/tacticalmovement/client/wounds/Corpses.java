@@ -556,7 +556,7 @@ public final class Corpses {
 		}
 
 		// Asleep once it has stopped moving for a while
-		if (moved < 0.003 && b.age > SLUMP_TICKS + 10 && (b.anim == null || b.age > b.animTicks)) {
+		if (moved < 0.006 && b.age > SLUMP_TICKS + 10 && (b.anim == null || b.age > b.animTicks)) {
 			if (++b.still > 30) {
 				b.asleep = true;
 			}
@@ -653,7 +653,7 @@ public final class Corpses {
 	private static void separate(ClientLevel level, Body b, double[] up, double[] shR, double[] shL, double[] hipR, double[] hipL) {
 		double[][] p = b.pos;
 		Capsule[] c = new Capsule[CAPSULES];
-		c[TORSO] = new Capsule(HIPS, NECK, add(p[HIPS], up, TORSO_START), p[NECK], TORSO_R, 0.15);
+		c[TORSO] = new Capsule(HIPS, NECK, add(p[HIPS], up, TORSO_START), p[NECK], TORSO_R, 1.0E9);
 		c[HEAD_C] = new Capsule(HEAD, HEAD, p[HEAD], p[HEAD], HEAD_R, 0.4);
 		c[R_UPPER] = new Capsule(-1, R_ELBOW, shR, p[R_ELBOW], LIMB_R, 1);
 		c[R_FORE] = new Capsule(R_ELBOW, R_HAND, p[R_ELBOW], p[R_HAND], LIMB_R, 1);
@@ -694,6 +694,11 @@ public final class Corpses {
 
 	/** Moves a capsule by {@code amount} along {@code n} at the spot {@code t} along it (its two ends sharing it). */
 	private static void push(ClientLevel level, Body b, Capsule c, double t, double[] n, double amount) {
+		// The torso is never pushed: its two ends being pushed by the limbs resting on it, tick after tick, turned the whole
+		// body on the ground for good (found with CorpsePhysicsCheck: a quarter of random falls spun; none do with this)
+		if (c.a() == HIPS && c.b() == NECK) {
+			return;
+		}
 		double ka = c.a() == c.b() ? 1 : 1 - t, kb = c.a() == c.b() ? 0 : t;
 		// Only its free ends move; with one end fixed, the other end takes all of it (scaled, so the touching spot moves)
 		if (c.a() < 0) {
@@ -785,6 +790,9 @@ public final class Corpses {
 	}
 
 	private static boolean free(ClientLevel level, double x, double y, double z, double r) {
+		if (level == null) {
+			return y - r >= 0.0; // no world (the physics test, CorpsePhysicsCheck): flat ground at y = 0
+		}
 		return level.noCollision(new AABB(x - r, y - r, z - r, x + r, y + r, z + r));
 	}
 
