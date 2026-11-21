@@ -2,7 +2,7 @@
 BetterModel (on the server) draws it for players without it. One file, so both see the same zombie.
 
 Usage: python -I tools/models/zombie_body.py <out .bbmodel> [<out gore .png>]
-       python -I tools/models/zombie_body.py --looks <dir>   -> mz_zombie_1..5.bbmodel (the five uniforms, zombie_skins.py)
+       python -I tools/models/zombie_body.py --looks <dir>   -> mz_zombie_1..5.bbmodel (the five uniforms, zombie_skins.py), and each with _snow / _wet / _dust (zombie_fx.py)
   * Server: plugins/BetterModel/models/mz_zombie_1..5.bbmodel (TacticalMovementPlugin gives each arena zombie one, the
     same one the mod picks: ZombieModel.skin); mz_zombie.bbmodel is only used when those aren't there.
   * Server: plugins/BetterModel/models/mz_zombie.bbmodel (TacticalMovementPlugin puts it on every arena zombie).
@@ -367,14 +367,17 @@ def build(path, skin=None):
 if __name__ == '__main__':
     if sys.argv[1] == '--looks':
         # The server's five looks: mz_zombie_1..5.bbmodel, each with its skin from zombie_skins.py
-        import zombie_skins
+        # and the same three more times with weather on it (zombie_fx.py): mz_zombie_N_snow / _wet / _dust, which the server
+        # swaps in while a zombie is out in the snow or rain or the desert
+        import zombie_skins, zombie_fx
         for i, (name, data) in enumerate(zombie_skins.skins(), 1):
-            out = os.path.join(sys.argv[2], 'mz_zombie_%d.bbmodel' % i)
-            build(out, data)
-            # BetterModel names the model after the file; inside, it is named the same
-            m = json.load(open(out))
-            m['name'] = 'mz_zombie_%d' % i
-            json.dump(m, open(out, 'w'))
+            for suffix, skin in [('', data)] + [('_' + fx, zombie_fx.bake(data, fx)) for fx in zombie_fx.EFFECTS]:
+                out = os.path.join(sys.argv[2], 'mz_zombie_%d%s.bbmodel' % (i, suffix))
+                build(out, skin)
+                # BetterModel names the model after the file; inside, it is named the same
+                m = json.load(open(out))
+                m['name'] = 'mz_zombie_%d%s' % (i, suffix)
+                json.dump(m, open(out, 'w'))
         sys.exit(0)
     build(sys.argv[1])
     if len(sys.argv) > 2:

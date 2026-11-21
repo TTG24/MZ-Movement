@@ -1,3 +1,12 @@
+# MZ-Movement 1.2.2
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API.
+
+## New
+
+- **Weather on zombies:** snow settles on zombies out in the snow, rain soaks them (and water), and desert or badlands
+  dust clings to them. It builds up over a few seconds outside and wears off once they're out of it; corpses keep it.
+
 # MZ-Movement 1.2.1
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API.

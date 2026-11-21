@@ -111,6 +111,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 		com.mzcod.tacticalmovement.client.animation.ZombieRise.register();
 		com.mzcod.tacticalmovement.client.zombie.ZombieCrawlers.register();
 		com.mzcod.tacticalmovement.client.zombie.ZombieModel.register();
+		com.mzcod.tacticalmovement.client.zombie.ZombieFx.register();
 		com.mzcod.tacticalmovement.client.wounds.GoreChunks.register();
 		com.mzcod.tacticalmovement.client.wounds.WoundFx.register();
 		com.mzcod.tacticalmovement.client.wounds.Corpses.register();

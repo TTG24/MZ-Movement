@@ -38,6 +38,9 @@ public final class ZombieModel {
 	private static final Identifier MODEL = TacticalMovement.id("models/mz_zombie.bbmodel");
 	private static final Identifier EYES = TacticalMovement.id("textures/entity/zombie_eyes.png");
 	private static final Identifier GORE = TacticalMovement.id("textures/entity/zombie_gore.png");
+	/** Weather over the skin: ZombieFx.SNOW, WET, DUST. */
+	private static final Identifier[] FX = {TacticalMovement.id("textures/entity/zombie_fx_snow.png"),
+		TacticalMovement.id("textures/entity/zombie_fx_wet.png"), TacticalMovement.id("textures/entity/zombie_fx_dust.png")};
 	/** How many looks there are (must match ZombieModelHook.LOOKS on the server). */
 	private static final int LOOKS = 5;
 	private static final Identifier[] SKINS = new Identifier[LOOKS];
@@ -245,7 +248,7 @@ public final class ZombieModel {
 		// is -z, its right +x, y up: Blockbench's own axes)
 		poseStack.mulPose(new Matrix4f().rotationY((float) Math.toRadians(180.0F - state.bodyRot)));
 		poseStack.scale(state.scale, state.scale, state.scale);
-		emit(m, bones, state, skin(id), wounds, poseStack, collector);
+		emit(m, bones, state, id, wounds, poseStack, collector);
 		poseStack.popPose();
 		return true;
 	}
@@ -263,26 +266,35 @@ public final class ZombieModel {
 		}
 		Matrix4f[] bones = corpseMatrices(m, corpse);
 		poseStack.pushPose();
-		emit(m, bones, state, skin(corpse.source()), wounds, poseStack, collector);
+		emit(m, bones, state, corpse.source(), wounds, poseStack, collector);
 		poseStack.popPose();
 		return true;
 	}
 
 	/** Emits the model's faces with the given bone matrices (pixels), from the pose stack's origin. */
-	private static void emit(BbModel m, Matrix4f[] bones, LivingEntityRenderState state, Identifier skin, Identifier wounds,
+	private static void emit(BbModel m, Matrix4f[] bones, LivingEntityRenderState state, int id, Identifier wounds,
 		PoseStack poseStack, SubmitNodeCollector collector) {
 		int overlay = OverlayTexture.pack(OverlayTexture.u(0.0F), OverlayTexture.v(state.hasRedOverlay));
 		int light = state.lightCoords;
 		poseStack.scale(1 / 16.0F, 1 / 16.0F, 1 / 16.0F);
-		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(skin),
+		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(skin(id)),
 			(p, vc) -> draw(m, bones, p, vc, 0, false, light, overlay));
 		collector.submitCustomGeometry(poseStack, RenderTypes.entityCutout(GORE),
 			(p, vc) -> draw(m, bones, p, vc, 2, false, light, overlay));
+		// Weather over the skin (snow, rain, dust), fading in and out with how long it has been out in it
+		for (int k = 0; k < ZombieFx.KINDS; k++) {
+			float a = ZombieFx.strength(id, k);
+			if (a > 0.02F) {
+				int color = ((int) (a * 255) << 24) | 0xFFFFFF;
+				collector.order(1).submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(FX[k]),
+					(p, vc) -> draw(m, bones, p, vc, 0, false, light, overlay, color));
+			}
+		}
 		if (wounds != null) {
-			collector.order(1).submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(wounds),
+			collector.order(2).submitCustomGeometry(poseStack, RenderTypes.entityTranslucent(wounds),
 				(p, vc) -> draw(m, bones, p, vc, 0, false, light, overlay));
 		}
-		collector.order(2).submitCustomGeometry(poseStack, RenderTypes.entityTranslucentEmissive(EYES),
+		collector.order(3).submitCustomGeometry(poseStack, RenderTypes.entityTranslucentEmissive(EYES),
 			(p, vc) -> draw(m, bones, p, vc, 1, true, 0xF000F0, OverlayTexture.NO_OVERLAY));
 	}
 
@@ -416,6 +428,11 @@ public final class ZombieModel {
 	/** Emits the faces drawn with one texture (glowing ones only, or all but those). */
 	private static void draw(BbModel m, Matrix4f[] bones, PoseStack.Pose pose, VertexConsumer vc, int texture, boolean glowing,
 		int light, int overlay) {
+		draw(m, bones, pose, vc, texture, glowing, light, overlay, 0xFFFFFFFF);
+	}
+
+	private static void draw(BbModel m, Matrix4f[] bones, PoseStack.Pose pose, VertexConsumer vc, int texture, boolean glowing,
+		int light, int overlay, int color) {
 		float size = texture < m.uvSize.length ? m.uvSize[texture] : 64;
 		Vector3f v = new Vector3f(), nrm = new Vector3f();
 		for (int i = 0; i < bones.length; i++) {
@@ -441,7 +458,7 @@ public final class ZombieModel {
 						pose.pose().transformPosition(v);
 						float u = (k == 0 || k == 3 ? uv[0] : uv[2]) / size;
 						float t = (k < 2 ? uv[1] : uv[3]) / size;
-						vc.addVertex(v.x, v.y, v.z, 0xFFFFFFFF, u, t, overlay, light, nrm.x, nrm.y, nrm.z);
+						vc.addVertex(v.x, v.y, v.z, color, u, t, overlay, light, nrm.x, nrm.y, nrm.z);
 					}
 				}
 			}
