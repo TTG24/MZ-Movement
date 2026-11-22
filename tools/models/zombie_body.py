@@ -15,7 +15,7 @@ lower back and chest, head with a jaw, upper arm / forearm / hand, thigh / shin 
 (full-bright plates on the face) and gore caps inside the thighs that show once the legs are blown off.
 
 Animations (zombie_anims.py): idle_1..3, walk_1..4, sprint_1..4, attack, rise, death_back / death_forward /
-death_headshot; crawlers: crawl_fall (legs blown off), crawl_idle_1..2, crawl_1..3, crawl_fast_1..3, crawl_attack,
+death_headshot, shock_1..3 (the Wunderwaffe); crawlers: crawl_fall (legs blown off), crawl_idle_1..2, crawl_1..3, crawl_fast_1..3, crawl_attack,
 crawl_death. Variant 1 of idle / walk / sprint is the original zombie (tools/models/reference).
 
 Conventions: the poses are worked out in Blockbench angles (zombie_anims.py); BetterModel turns X and Y the other way
@@ -293,6 +293,12 @@ def all_animations():
     for name, _, _, keys, _ in out:
         for w in WOUNDS:
             keys[(w, 'scale')] = [(0, (1, 1, 1) if name.startswith('crawl') else (0, 0, 0))]
+    # Shocked by the Wunderwaffe (keyed in the file's own angles, the jaw included: added after the jaw pass above)
+    for name in A.SHOCKS:
+        keys = A.keys_shock(name)
+        for w in WOUNDS:
+            keys[(w, 'scale')] = [(0, (0, 0, 0))]
+        out.append((name, A.SHOCK_LEN, 'loop', keys, 'linear'))
     return out
 
 

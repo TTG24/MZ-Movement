@@ -46,6 +46,8 @@ public final class TacticalMovement implements ModInitializer {
 			com.mzcod.tacticalmovement.network.GunAnimPayload.STREAM_CODEC);
 		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.TracerPayload.TYPE,
 			com.mzcod.tacticalmovement.network.TracerPayload.STREAM_CODEC);
+		PayloadTypeRegistry.clientboundPlay().register(com.mzcod.tacticalmovement.network.ShockPayload.TYPE,
+			com.mzcod.tacticalmovement.network.ShockPayload.STREAM_CODEC);
 		PayloadTypeRegistry.serverboundPlay().register(com.mzcod.tacticalmovement.network.TriggerPayload.TYPE,
 			com.mzcod.tacticalmovement.network.TriggerPayload.STREAM_CODEC);
 

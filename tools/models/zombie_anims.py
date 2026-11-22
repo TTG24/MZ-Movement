@@ -480,3 +480,77 @@ def keys_crawl_death():
         for b in ('_leg', '_shin', '_foot'):
             key(side + b, 'scale', 0, base[side + b]['scale'])
     return k
+
+
+# ------------------------------------------------------------------------------------------------------------ shocked
+# The Wunderwaffe's lightning: the zombie convulses where it stands (shock_1..3, looping, the server picks one) until it
+# drops. Fast juddering keys (random but the same every build, the last key = the first: a seamless loop). These are
+# written in the file's own angles (what BetterModel and the mod read: X and Y the other way round from Blockbench's;
+# there a head thrown back is + X, an arm raised forward - X, a lean forward + X on the torso),
+# so keys_shock turns X and Y back for zombie_body, which turns them again as it writes.
+import random as _random
+
+SHOCK_STEP, SHOCK_LEN = 0.05, 0.6
+
+
+def _shock_1(t, j):
+    """Arms thrown out stiff to the sides, head back, the whole body shaking where it stands."""
+    return {
+        'torso': (-6 + j(4), j(3), j(5)), 'chest': (-8 + j(4), j(4), j(4)),
+        'hi_head': (30 + j(10), j(12), j(10)), 'jaw': (30 + j(10), 0, 0),
+        'right_arm': (-15 + j(10), j(8), 80 + j(12)), 'left_arm': (-15 + j(10), j(8), -80 + j(12)),
+        'right_forearm': (-6 + j(8), 0, j(6)), 'left_forearm': (-6 + j(8), 0, j(6)),
+        'right_hand': (j(25), 0, j(15)), 'left_hand': (j(25), 0, j(15)),
+        'right_leg': (j(5), 0, 4 + j(3)), 'left_leg': (j(5), 0, -4 + j(3)),
+        'right_shin': (4 + j(4), 0, 0), 'left_shin': (4 + j(4), 0, 0),
+        'root': ('pos', j(0.4), j(0.5), j(0.4)),
+    }
+
+
+def _shock_2(t, j):
+    """Hunched over, arms clutched in to the chest, knees buckling, juddering."""
+    return {
+        'torso': (28 + j(6), j(5), j(6)), 'chest': (16 + j(6), j(5), j(5)),
+        'hi_head': (18 + j(12), j(15), j(10)), 'jaw': (25 + j(12), 0, 0),
+        'right_arm': (-45 + j(10), 25 + j(8), -12 + j(8)), 'left_arm': (-45 + j(10), -25 + j(8), 12 + j(8)),
+        'right_forearm': (-105 + j(12), 0, 0), 'left_forearm': (-105 + j(12), 0, 0),
+        'right_hand': (j(30), 0, 0), 'left_hand': (j(30), 0, 0),
+        'right_leg': (-28 + j(6), 0, 3), 'left_leg': (-28 + j(6), 0, -3),
+        'right_shin': (48 + j(8), 0, 0), 'left_shin': (48 + j(8), 0, 0),
+        'root': ('pos', j(0.4), -2.5 + j(0.6), j(0.4)),
+    }
+
+
+def _shock_3(t, j):
+    """Back arched, head thrown back, arms jerking up and down."""
+    up = (int(round(t / SHOCK_STEP)) % 2) * 2 - 1
+    return {
+        'torso': (-20 + j(5), j(4), j(5)), 'chest': (-16 + j(5), j(4), j(5)),
+        'hi_head': (45 + j(10), j(12), j(12)), 'jaw': (40 + j(8), 0, 0),
+        'right_arm': (-120 + 30 * up + j(10), j(10), 25 + j(10)), 'left_arm': (-120 - 30 * up + j(10), j(10), -25 + j(10)),
+        'right_forearm': (-30 + j(20), 0, 0), 'left_forearm': (-30 + j(20), 0, 0),
+        'right_hand': (j(30), 0, 0), 'left_hand': (j(30), 0, 0),
+        'right_leg': (8 + j(5), 0, 3 + j(3)), 'left_leg': (8 + j(5), 0, -3 + j(3)),
+        'right_shin': (6 + j(6), 0, 0), 'left_shin': (6 + j(6), 0, 0),
+        'root': ('pos', j(0.3), 0.6 + j(0.5), j(0.3)),
+    }
+
+
+SHOCKS = {'shock_1': _shock_1, 'shock_2': _shock_2, 'shock_3': _shock_3}
+
+
+def keys_shock(name):
+    """{(bone, 'rot' / 'pos'): [(t, (x, y, z))]} for zombie_body (rotations in Blockbench terms)."""
+    fn = SHOCKS[name]
+    n = int(round(SHOCK_LEN / SHOCK_STEP))
+    keys = {}
+    for i in range(n + 1):
+        t = round(i * SHOCK_STEP, 3)
+        r = _random.Random(name + str(i % n))
+        pose = fn((i % n) * SHOCK_STEP, lambda amp, r=r: r.uniform(-amp, amp))
+        for bone, v in pose.items():
+            if v[0] == 'pos':
+                keys.setdefault((bone, 'pos'), []).append((t, (round(v[1], 3), round(v[2], 3), round(v[3], 3))))
+            else:
+                keys.setdefault((bone, 'rot'), []).append((t, (round(-v[0], 3), round(-v[1], 3), round(v[2], 3))))
+    return keys

@@ -130,7 +130,12 @@ public final class ZombieModel {
 		BbModel.Animation fall = m.animations.get("crawl_fall");
 		String wanted;
 		float rate;
-		if (crawler && fall != null && crawlTime < fall.length) {
+		int shock = crawler ? 0 : ZombieShock.variant(id);
+		if (shock > 0 && m.animations.containsKey("shock_" + shock)) {
+			// shocked by the Wunderwaffe: convulsing until it drops
+			wanted = "shock_" + shock;
+			rate = 1;
+		} else if (crawler && fall != null && crawlTime < fall.length) {
 			wanted = "crawl_fall";
 			rate = 1;
 		} else if (crawler) {

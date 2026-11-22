@@ -1,3 +1,14 @@
+# MZ-Movement 1.3.2
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.8.
+
+## New
+
+- **Shocked zombies:** zombies hit by the Wunderwaffe convulse in one of three shock animations, with little arcs of
+  lightning crawling over them, before they drop.
+- **Ray Gun bolts:** the Ray Gun fires a glowing green bolt with rings round it (red once Pack-a-Punched), which bursts
+  into an expanding ring where it lands.
+
 # MZ-Movement 1.3.1
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.7.
