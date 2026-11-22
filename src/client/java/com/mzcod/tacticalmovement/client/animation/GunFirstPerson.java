@@ -132,6 +132,7 @@ public final class GunFirstPerson {
 		MAG.put("barrett", new float[] {0.263F, 0.053F});
 		MAG.put("dsr50", new float[] {-0.341F, 0.000F});
 		MAG.put("svu", new float[] {-0.263F, -0.075F});
+		MAG.put("wunderwaffe", new float[] {0.270F, 0.169F});
 		MAG.put("m1_carbine", new float[] {0.169F, -0.019F});
 	}
 
@@ -262,6 +263,8 @@ public final class GunFirstPerson {
 	/** Where the grip goes when aiming: in the middle, low enough that the sights line up with the crosshair. */
 	/** How high each gun's top (its sights) is above its grip, in blocks as held (generated from tools/gun_models). */
 	private static final java.util.Map<String, Float> SIGHT = new java.util.HashMap<>();
+	/** Guns held lower from the hip (blocks), so a tall one (the Wunderwaffe's bulbs) doesn't block the view. */
+	private static final java.util.Map<String, Float> HIP_DROP = java.util.Map.of("wunderwaffe", 0.1F);
 
 	static {
 		SIGHT.put("m1911", 0.124F);
@@ -278,6 +281,7 @@ public final class GunFirstPerson {
 		SIGHT.put("type100", 0.168F);
 		SIGHT.put("ptrs41", 0.465F);
 		SIGHT.put("ray_gun", 0.156F);
+		SIGHT.put("wunderwaffe", 0.352F);
 		SIGHT.put("b23r", 0.124F);
 		SIGHT.put("executioner", 0.129F);
 		SIGHT.put("five_seven", 0.117F);
@@ -482,7 +486,8 @@ public final class GunFirstPerson {
 		updateAim(mc, p, sprint);
 		float k = GunAnim.kick(style) * (1 - 0.45F * aim), b = GunAnim.bob(id) * GunAnim.kick(style);
 		Vector3f ads = ads(style, GunAnim.gunId(stack));
-		float hx = Mth.lerp(aim, h.x, ads.x), hy = Mth.lerp(aim, h.y, ads.y), hz = Mth.lerp(aim, h.z, ads.z);
+		float hx = Mth.lerp(aim, h.x, ads.x), hy = Mth.lerp(aim, h.y, ads.y) - HIP_DROP.getOrDefault(String.valueOf(GunAnim.gunId(stack)), 0F) * (1 - aim),
+			hz = Mth.lerp(aim, h.z, ads.z);
 		// (firing brings a sprinting gun back up)
 		float run = sprint * (1 - aim) * (1 - GunAnim.firing(id));
 		float[] look = GunAnim.lookPose(id);

@@ -1,3 +1,13 @@
+# MZ-Movement 1.3.1
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.7.
+
+## New
+
+- **Wunderwaffe DG-2** (and its Pack-a-Punched DG-3 JZ): its lightning is drawn as a flickering, forking bolt that
+  jumps from zombie to zombie, and a reload swaps the three glowing bulbs on its side. It's held a little lower from the
+  hip so it doesn't block your view.
+
 # MZ-Movement 1.3.0
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.6.

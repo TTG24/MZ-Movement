@@ -516,6 +516,7 @@ public final class GunAnim {
 			if (magAt != null && !top) {
 				mag.set(magAt);
 			}
+			// pulled out and down, out of sight
 			Vector3f below = new Vector3f(mag).add(0, -0.45F, 0.1F);
 			if (hand <= 1) {
 				at.lerp(mag, hand);

@@ -28,8 +28,13 @@ public final class GunTracers {
 	/** How fast a tracer flies (blocks a second), how long its streak is (blocks), how long the faint line lasts (s). */
 	private static final double SPEED = 220, STREAK = 3.5, GLOW = 0.07;
 
-	private record Tracer(Vec3 from, Vec3 to, float r, float g, float b, long born) {
+	/** kind: 0 a bullet; 1 lightning from the gun (the Wunderwaffe); 2 lightning jumping between zombies. */
+	private record Tracer(Vec3 from, Vec3 to, float r, float g, float b, long born, int kind) {
 	}
+
+	/** How long a bolt of lightning is seen (s), and how often it flickers into a new shape (ms). */
+	private static final double BOLT = 0.28;
+	private static final long FLICKER_MS = 45;
 
 	private static final List<Tracer> TRACERS = new ArrayList<>();
 	private static boolean triggerDown;
@@ -46,7 +51,7 @@ public final class GunTracers {
 				return;
 			}
 			long now = System.nanoTime();
-			TRACERS.removeIf(t -> (now - t.born) / 1.0E9 > t.from.distanceTo(t.to) / SPEED + GLOW + 0.05);
+			TRACERS.removeIf(t -> (now - t.born) / 1.0E9 > (t.kind > 0 ? BOLT : t.from.distanceTo(t.to) / SPEED + GLOW + 0.05));
 			if (TRACERS.isEmpty()) {
 				return;
 			}
@@ -66,10 +71,23 @@ public final class GunTracers {
 		if (mc.level == null) {
 			return;
 		}
+		int kind = (p.color() >>> 24) & 255;
+		if (kind > 2) {
+			kind = 0;
+		}
 		Vec3 from = new Vec3(p.fx(), p.fy(), p.fz());
 		Vec3 to = new Vec3(p.tx(), p.ty(), p.tz());
 		Entity shooter = mc.level.getEntity(p.shooter());
 		// Stops at the first wall
+		if (kind == 2) {
+			// a jump between zombies: just as it is
+			if (TRACERS.size() > 200) {
+				TRACERS.remove(0);
+			}
+			int c = p.color();
+			TRACERS.add(new Tracer(from, to, ((c >> 16) & 255) / 255F, ((c >> 8) & 255) / 255F, (c & 255) / 255F, System.nanoTime(), 2));
+			return;
+		}
 		HitResult wall = mc.level.clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE,
 			shooter != null ? shooter : mc.player));
 		if (wall.getType() != HitResult.Type.MISS) {
@@ -101,7 +119,7 @@ public final class GunTracers {
 		// Brighter than the gun's particle colour, towards white-hot
 		int c = p.color();
 		float r = ((c >> 16) & 255) / 255F, g = ((c >> 8) & 255) / 255F, b = (c & 255) / 255F;
-		if (r + g + b < 1.2F) {
+		if (kind == 0 && r + g + b < 1.2F) {
 			// a grey or dark colour: an ordinary bullet's warm yellow
 			r = 1.0F;
 			g = 0.82F;
@@ -110,10 +128,14 @@ public final class GunTracers {
 		if (TRACERS.size() > 200) {
 			TRACERS.remove(0);
 		}
-		TRACERS.add(new Tracer(muzzle, to, r, g, b, System.nanoTime()));
+		TRACERS.add(new Tracer(muzzle, to, r, g, b, System.nanoTime(), kind));
 	}
 
 	private static void draw(Tracer t, long now, Vec3 cam, PoseStack.Pose pose, VertexConsumer vc) {
+		if (t.kind > 0) {
+			bolt(t, now, cam, pose, vc);
+			return;
+		}
 		double age = (now - t.born) / 1.0E9;
 		double len = t.from.distanceTo(t.to);
 		Vec3 dir = t.to.subtract(t.from).normalize();
@@ -128,6 +150,52 @@ public final class GunTracers {
 		if (age < GLOW) {
 			float fade = (float) (1 - age / GLOW);
 			ribbon(vc, pose, cam, t.from, t.to, 0.02F, t.r, t.g, t.b, 0.25F * fade);
+		}
+	}
+
+	/**
+	 * Lightning: a jagged line from end to end (most crooked in the middle), a forked branch or two, a wide glow in the
+	 * bolt's colour around a white-hot core; it flickers into a new shape every FLICKER_MS and fades out.
+	 */
+	private static void bolt(Tracer t, long now, Vec3 cam, PoseStack.Pose pose, VertexConsumer vc) {
+		double age = (now - t.born) / 1.0E9;
+		float fade = (float) Math.max(0, 1 - age / BOLT);
+		// flickering: now and then a frame dimmer
+		long frame = (now - t.born) / (FLICKER_MS * 1_000_000L);
+		java.util.Random rnd = new java.util.Random(t.born * 31 + frame);
+		float alpha = fade * (rnd.nextFloat() < 0.2F ? 0.45F : 1.0F);
+		double len = t.from.distanceTo(t.to);
+		if (len < 0.05) {
+			return;
+		}
+		Vec3 dir = t.to.subtract(t.from).normalize();
+		Vec3 a = dir.cross(new Vec3(0, 1, 0));
+		a = a.lengthSqr() < 1.0E-6 ? new Vec3(1, 0, 0) : a.normalize();
+		Vec3 b = a.cross(dir).normalize();
+		int n = Math.max(4, (int) (len / 0.6));
+		Vec3[] pts = new Vec3[n + 1];
+		double jag = Math.min(0.6, 0.12 + len * 0.05);
+		for (int i = 0; i <= n; i++) {
+			double f = i / (double) n;
+			double off = (i == 0 || i == n) ? 0 : Math.sin(f * Math.PI) * jag;
+			pts[i] = t.from.add(dir.scale(len * f)).add(a.scale((rnd.nextDouble() * 2 - 1) * off)).add(b.scale((rnd.nextDouble() * 2 - 1) * off));
+		}
+		for (int i = 0; i < n; i++) {
+			ribbon(vc, pose, cam, pts[i], pts[i + 1], 0.11F, t.r, t.g, t.b, 0.35F * alpha);
+			ribbon(vc, pose, cam, pts[i], pts[i + 1], 0.035F, 0.95F, 0.97F, 1.0F, 0.95F * alpha);
+		}
+		// a fork or two off the side
+		int forks = 1 + rnd.nextInt(2);
+		for (int k = 0; k < forks && n > 2; k++) {
+			Vec3 s = pts[1 + rnd.nextInt(n - 1)];
+			Vec3 prev = s;
+			Vec3 way = dir.scale(0.5).add(a.scale(rnd.nextDouble() * 2 - 1)).add(b.scale(rnd.nextDouble() * 2 - 1)).normalize();
+			for (int j = 0; j < 3; j++) {
+				Vec3 next = prev.add(way.scale(0.3 + rnd.nextDouble() * 0.3)).add(a.scale((rnd.nextDouble() - 0.5) * 0.2));
+				ribbon(vc, pose, cam, prev, next, 0.06F, t.r, t.g, t.b, 0.3F * alpha);
+				ribbon(vc, pose, cam, prev, next, 0.018F, 0.95F, 0.97F, 1.0F, 0.8F * alpha);
+				prev = next;
+			}
 		}
 	}
 
