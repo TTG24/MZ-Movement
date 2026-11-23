@@ -23,6 +23,20 @@ public abstract class AvatarRenderStateMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private <T extends Avatar & ClientAvatarEntity> void tacticalMovement$captureState(T entity, AvatarRenderState state, float partialTicks, CallbackInfo ci) {
 		TacticalRenderStateAccess access = (TacticalRenderStateAccess) state;
+		// Avatars that aren't players (e.g. vanilla Mannequins, used by mirror plugins) don't carry
+		// movement state. Render them with neutral defaults instead of crashing on the cast.
+		if (!(entity instanceof MovementStateAccess)) {
+			access.tacticalMovement$setStance(MovementStance.STANDING);
+			access.tacticalMovement$setHoldingSword(false);
+			access.tacticalMovement$setLocalPlayer(false);
+			access.tacticalMovement$setProneBlend(0.0F);
+			access.tacticalMovement$setProneMove(0.0F);
+			access.tacticalMovement$setCrouchBlend(0.0F);
+			access.tacticalMovement$setCrouchMove(0.0F);
+			access.tacticalMovement$setSprintBlend(0.0F);
+			access.tacticalMovement$setSneakBlend(state.isCrouching ? 1.0F : 0.0F);
+			return;
+		}
 		MovementStance stance = ((MovementStateAccess) entity).tacticalMovement$getStance();
 		access.tacticalMovement$setStance(stance);
 		access.tacticalMovement$setHoldingSword(entity.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE));

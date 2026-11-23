@@ -1,3 +1,12 @@
+# MZ-Movement 1.3.3
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.8.
+
+## Fixed
+
+- **Mirrors and mannequins no longer crash the game.** Player-shaped entities that aren't players (vanilla
+  mannequins, and the reflections in the server's mirrors) are now drawn normally instead of crashing the client.
+
 # MZ-Movement 1.3.2
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.8.
