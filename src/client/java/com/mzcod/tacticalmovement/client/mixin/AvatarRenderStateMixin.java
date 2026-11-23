@@ -23,22 +23,8 @@ public abstract class AvatarRenderStateMixin {
 	@Inject(method = "extractRenderState", at = @At("TAIL"))
 	private <T extends Avatar & ClientAvatarEntity> void tacticalMovement$captureState(T entity, AvatarRenderState state, float partialTicks, CallbackInfo ci) {
 		TacticalRenderStateAccess access = (TacticalRenderStateAccess) state;
-		// Avatars that aren't players (e.g. vanilla Mannequins, used by mirror plugins) don't carry
-		// movement state. Render them with neutral defaults instead of crashing on the cast.
-		if (!(entity instanceof MovementStateAccess)) {
-			access.tacticalMovement$setStance(MovementStance.STANDING);
-			access.tacticalMovement$setHoldingSword(false);
-			access.tacticalMovement$setLocalPlayer(false);
-			access.tacticalMovement$setProneBlend(0.0F);
-			access.tacticalMovement$setProneMove(0.0F);
-			access.tacticalMovement$setCrouchBlend(0.0F);
-			access.tacticalMovement$setCrouchMove(0.0F);
-			access.tacticalMovement$setSprintBlend(0.0F);
-			access.tacticalMovement$setSneakBlend(state.isCrouching ? 1.0F : 0.0F);
-			return;
-		}
-		MovementStance stance = ((MovementStateAccess) entity).tacticalMovement$getStance();
-		access.tacticalMovement$setStance(stance);
+		// The sword stance and slash only need the held item, so they apply to every avatar, players and
+		// non-player avatars alike (e.g. vanilla Mannequins, which mirror plugins use for reflections).
 		access.tacticalMovement$setHoldingSword(entity.getMainHandItem().is(com.mzcod.tacticalmovement.TacticalItems.MELEE));
 
 		// Tag this render state as the LOCAL player's model so the model mixin can gate
@@ -47,16 +33,35 @@ public abstract class AvatarRenderStateMixin {
 		Minecraft mc = Minecraft.getInstance();
 		access.tacticalMovement$setLocalPlayer(mc.player != null && entity == mc.player);
 
-		MovementStateAccess movement = (MovementStateAccess) entity;
-		access.tacticalMovement$setProneBlend(movement.tacticalMovement$getProneBlend());
 		double dx = entity.getDeltaMovement().x;
 		double dz = entity.getDeltaMovement().z;
 		float horizontal = (float) Math.sqrt(dx * dx + dz * dz);
-		// Prone crawl is slow; map a small horizontal speed to the 0..1 stroke weight.
-		access.tacticalMovement$setProneMove(Math.min(1.0F, horizontal / 0.045F));
-		// Crouch-walk is faster than the prone crawl (server caps it at ~0.12 b/t).
-		access.tacticalMovement$setCrouchBlend(movement.tacticalMovement$getCrouchBlend());
-		access.tacticalMovement$setCrouchMove(Math.min(1.0F, horizontal / 0.1F));
+		if (entity instanceof MovementStateAccess movement) {
+			access.tacticalMovement$setStance(movement.tacticalMovement$getStance());
+			access.tacticalMovement$setProneBlend(movement.tacticalMovement$getProneBlend());
+			// Prone crawl is slow; map a small horizontal speed to the 0..1 stroke weight.
+			access.tacticalMovement$setProneMove(Math.min(1.0F, horizontal / 0.045F));
+			// Crouch-walk is faster than the prone crawl (server caps it at ~0.12 b/t).
+			access.tacticalMovement$setCrouchBlend(movement.tacticalMovement$getCrouchBlend());
+			access.tacticalMovement$setCrouchMove(Math.min(1.0F, horizontal / 0.1F));
+		} else {
+			// Non-player avatars (a mirror's reflection of a player) get the stance the server sent for their id, if any
+			com.mzcod.tacticalmovement.client.animation.AvatarStances.Entry avatar =
+				com.mzcod.tacticalmovement.client.animation.AvatarStances.get(entity.getId());
+			if (avatar != null) {
+				access.tacticalMovement$setStance(avatar.stance);
+				access.tacticalMovement$setProneBlend(avatar.proneBlend);
+				access.tacticalMovement$setProneMove(Math.min(1.0F, horizontal / 0.045F));
+				access.tacticalMovement$setCrouchBlend(avatar.crouchBlend);
+				access.tacticalMovement$setCrouchMove(Math.min(1.0F, horizontal / 0.1F));
+			} else {
+				access.tacticalMovement$setStance(MovementStance.STANDING);
+				access.tacticalMovement$setProneBlend(0.0F);
+				access.tacticalMovement$setProneMove(0.0F);
+				access.tacticalMovement$setCrouchBlend(0.0F);
+				access.tacticalMovement$setCrouchMove(0.0F);
+			}
+		}
 		// Smoothed sprint / sneak weights (eased per entity by wall-clock time, so they are frame-rate independent).
 		long now = System.nanoTime();
 		if (TACTICAL_SMOOTH.size() > 64) {

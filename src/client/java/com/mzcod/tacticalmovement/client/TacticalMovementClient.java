@@ -98,8 +98,8 @@ public final class TacticalMovementClient implements ClientModInitializer {
 				state.tacticalMovement$setDiveTicks(payload.diveTicks());
 				entity.refreshDimensions();
 			} else {
-				TacticalMovement.LOGGER.warn("[tactical] client received stance={} for unknown/non-accessible entity id={}",
-					payload.stance(), payload.entityId());
+				// Not a player: a mannequin (a mirror's reflection of a player) or an avatar not spawned yet
+				com.mzcod.tacticalmovement.client.animation.AvatarStances.set(payload.entityId(), payload.stance(), payload.diveTicks());
 			}
 		});
 
@@ -144,6 +144,7 @@ public final class TacticalMovementClient implements ClientModInitializer {
 
 		ClientTickEvents.START_CLIENT_TICK.register(TacticalMovementClient::tickInput);
 		ClientTickEvents.END_CLIENT_TICK.register(TacticalMovementClient::tickStanceVisual);
+		ClientTickEvents.END_CLIENT_TICK.register(com.mzcod.tacticalmovement.client.animation.AvatarStances::tick);
 		registerDebugCommands();
 		registerPoseCommands();
 	}

@@ -1,3 +1,12 @@
+# MZ-Movement 1.3.4
+
+Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.8.
+
+## Fixed
+
+- **Mirror reflections move like you.** Mannequins (and so the server's mirror reflections) now go prone, tactical
+  crouch and dive with you, and get the same sword stance, gun pose and sprint/sneak arm motion as players.
+
 # MZ-Movement 1.3.3
 
 Fabric mod for Minecraft 26.3. Install it with Fabric API. Needs the server's MinecraftZombies 1.4.8.
